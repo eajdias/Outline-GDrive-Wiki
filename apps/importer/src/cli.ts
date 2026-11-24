@@ -33,7 +33,7 @@ function serveUntilSignal(runtime: Runtime): Promise<void> {
 async function main(): Promise<void> {
   const command = parseCommand(process.argv.slice(2));
   if (!command) {
-    process.stderr.write("usage: import-drive <seed|apply|verify|serve>\n");
+    process.stderr.write("usage: importer <seed|apply|verify|serve>\n");
     process.exitCode = 2;
     return;
   }

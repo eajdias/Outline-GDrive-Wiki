@@ -112,7 +112,7 @@ export async function runServe(runtime: Runtime): Promise<RunningServe> {
     isKnownDoc: async (docId) => (await state.get(docId)) !== null,
   });
   await server.listen();
-  logger.info("import-drive webhook listening", { port: config.drive.port });
+  logger.info("importer webhook listening", { port: config.drive.port });
 
   await register();
 
