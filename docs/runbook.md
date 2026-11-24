@@ -93,6 +93,16 @@ sudo journalctl -u verify.service --since "24h ago" | tail -20
 docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verify
 ```
 
+## Release (gerar o tarball transportável)
+
+`src/infra/release.sh` empacota a fonte versionada — o build acontece no alvo:
+
+```bash
+./src/infra/release.sh 0.1.0   # exige repo limpo; sai em dist/outline-gdrive-wiki-0.1.0.tar.gz
+```
+
+O bundle (96K) leva `apps packages src docs scripts README LICENSE package*.json` + `MANIFEST.json` — sem `node_modules`, `dist`, `.env` ou segredos. Na VPS: extrair, `cp .env.example .env`, preencher segredos ([`setup.md`](setup.md#3-preencher-o-env)), rodar `./src/infra/deploy.sh`.
+
 ## Atualizar o Outline
 
 Windows: `pwsh -NoProfile -ExecutionPolicy Bypass -File src/infra/scripts/update-outline.ps1`
