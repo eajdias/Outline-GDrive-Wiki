@@ -17,9 +17,17 @@ FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 RUN chown node:node /app
+COPY package.json package-lock.json* ./
+COPY packages/logger/package.json ./packages/logger/package.json
+COPY packages/env/package.json ./packages/env/package.json
+COPY packages/http/package.json ./packages/http/package.json
+COPY apps/chat/package.json ./apps/chat/package.json
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY --from=build /app/apps/chat/dist ./dist
 COPY --from=build /app/apps/chat/public ./public
-COPY --from=build /app/apps/chat/package.json ./
+COPY --from=build /app/packages/logger/dist ./node_modules/@repo/logger/dist
+COPY --from=build /app/packages/env/dist ./node_modules/@repo/env/dist
+COPY --from=build /app/packages/http/dist ./node_modules/@repo/http/dist
 USER node
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

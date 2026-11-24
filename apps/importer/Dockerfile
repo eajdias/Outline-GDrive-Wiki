@@ -17,8 +17,16 @@ FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 RUN mkdir -p /data && chown node:node /data /app
+COPY package.json package-lock.json* ./
+COPY packages/logger/package.json ./packages/logger/package.json
+COPY packages/env/package.json ./packages/env/package.json
+COPY packages/http/package.json ./packages/http/package.json
+COPY apps/importer/package.json ./apps/importer/package.json
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY --from=build /app/apps/importer/dist ./dist
-COPY --from=build /app/apps/importer/package.json ./
+COPY --from=build /app/packages/logger/dist ./node_modules/@repo/logger/dist
+COPY --from=build /app/packages/env/dist ./node_modules/@repo/env/dist
+COPY --from=build /app/packages/http/dist ./node_modules/@repo/http/dist
 USER node
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
