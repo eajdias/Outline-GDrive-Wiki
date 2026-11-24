@@ -47,7 +47,7 @@ flowchart LR
     F --> G["verify compara Drive ↔ estado ↔ workspace"]
 ```
 
-Regras de seleção: entram só Google Docs; pastas listadas em `IMPORT_DRIVE_IGNORE_FOLDERS` ficam fora; cada pasta espelha a coleção homônima (`OUTLINE_COLLECTION_MAP` por ID quando configurado), ou cai na coleção default (`OUTLINE_DEFAULT_COLLECTION_ID`). O canal do Drive expira em até 7 dias — o `serve` renova antes e expõe o estado em `GET /healthz`. Comandos em [`runbook.md`](runbook.md); contrato técnico em [`plans/contrato-importador.md`](../plans/contrato-importador.md).
+Regras de seleção: entram só Google Docs; pastas listadas em `IMPORT_DRIVE_IGNORE_FOLDERS` ficam fora; cada pasta espelha a coleção homônima (`OUTLINE_COLLECTION_MAP` por ID quando configurado), ou cai na coleção default (`OUTLINE_DEFAULT_COLLECTION_ID`). O canal do Drive expira em até 7 dias — o `serve` renova antes e expõe o estado em `GET /healthz`. Comandos em [`runbook.md`](runbook.md); formato `raw-text` e demais detalhes em `src/import-drive/README.md`.
 
 ## Imagens inline
 

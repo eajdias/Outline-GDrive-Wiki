@@ -9,7 +9,7 @@
 ## O que é verdade onde
 
 - **Documentos: Google Drive.** Criação e edição acontecem lá. Nada de editar conteúdo via git.
-- **Git versiona** infra, código, docs e planos. Conteúdo se cria no Drive, nunca via git.
+- **Git versiona** infra, código e docs. Conteúdo se cria no Drive, nunca via git.
 - **IA 100% via API Gemini** (chat + embeddings). AnythingLLM é headless, só `/v1` com API key; chave nunca vai ao navegador.
 
 ## Regras

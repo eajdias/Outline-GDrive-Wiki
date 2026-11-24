@@ -29,6 +29,7 @@ def main() -> None:
                 continue
             path = os.path.join(current, fn)
             txt = open(path, encoding="utf-8", errors="replace").read()
+            txt = re.sub(r"`[^`]*`", "", txt)
             targets = [m.group(1) for m in TARGET_RE.finditer(txt)]
             for target in targets:
                 tgt = target.strip().replace("\\", "/")

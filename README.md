@@ -1,6 +1,8 @@
 # Outline GDrive Wiki
 
-Base de conhecimento com o Google Drive como fonte: os documentos nascem no Drive, aparecem para leitura no Outline e respondem perguntas em linguagem natural num chat com citações.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+Base de conhecimento com o Google Drive como fonte: escreve no Drive, lê no Outline e pergunta num chat com citações.
 
 ```mermaid
 flowchart LR
@@ -12,50 +14,64 @@ flowchart LR
     Chat --> Edge
 ```
 
-Nada aqui é editado no git — o git guarda infra, código e esta documentação. O conteúdo vive no Drive.
+Por que este projeto existe: o Outline é um ótimo wiki, mas não responde perguntas; o AnythingLLM responde, mas sem fonte confiável a resposta não serve. O importador liga os dois — espelha o Drive nos dois destinos — e o chat devolve resposta **com link e score da fonte**, ou diz "não encontrei".
 
-## Começando agora
+## Quickstart
 
-Pré-requisitos: Docker Desktop, Node 24+ (só para `npm run verify`), `.env` preenchido a partir de `.env.example` e o JSON da service account do GCP no caminho de `DRIVE_SA_KEY_PATH`. No projeto GCP: Drive API + Docs API habilitadas.
+Pré-requisitos: [Docker Desktop](https://www.docker.com/products/docker-desktop/), Node 24+ (só para `npm run verify`) e um projeto no [GCP](https://console.cloud.google.com/) com Drive API + Docs API habilitadas e uma service account com `drive.readonly` + `documents.readonly`.
 
 ```powershell
+# 1. Configurar (uma vez)
 Copy-Item src/infra/.env.example src/infra/.env   # preencher segredos
+# DRIVE_SA_KEY_PATH = caminho do JSON da service account (fora do repo)
+
+# 2. Subir e carregar
 docker compose -f src/infra/docker-compose.yml up -d
 docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive seed
+
+# 3. Abrir
+# Wiki: http://127.0.0.1:8091
+# Chat: http://127.0.0.1:8091/chat/
 ```
 
-Depois disso:
-
-- Wiki: http://127.0.0.1:8091
-- Chat: http://127.0.0.1:8091/chat/
-
-Carga incremental e verificação de convergência:
+Manutenção diária:
 
 ```powershell
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive apply
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive verify
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive apply   # incremental
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive verify  # convergência (exit 1 = divergência)
 ```
 
-Sem HTTPS público o sincronismo roda por poll a cada 15 minutos; o `apply` força na hora. Detalhes em [`docs/runbook.md`](docs/runbook.md).
+Sem HTTPS público o sincronismo roda por poll a cada 15 minutos; o `apply` força na hora.
 
-## Onde está cada coisa
+## Como funciona
+
+| Preciso… | Abra |
+|---|---|
+| Usar o wiki ou o chat | Suba a stack (acima) — login local em [`docs/runbook.md`](docs/runbook.md) |
+| Entender como as peças se ligam | [`docs/architecture.md`](docs/architecture.md) |
+| Operar: backup, incidentes, credenciais | [`docs/runbook.md`](docs/runbook.md) |
+| Saber quem pode o quê, onde moram segredos | [`docs/security.md`](security.md) |
+| Saber por que uma decisão foi tomada | [`docs/adr/`](docs/adr/) |
+| Mexer no código | [`src/AGENTS.md`](src/AGENTS.md) + README de cada serviço |
+
+Estrutura:
 
 | Pasta | O quê |
 |---|---|
-| `src/infra/` | Compose, edge, scripts de backup e atualização |
-| `src/import-drive/` | Espelha Drive → Outline + AnythingLLM |
-| `src/chatui/` | Pergunta/resposta com fontes |
+| `src/import-drive/` | Espelha Drive → Outline + AnythingLLM ([detalhes](src/import-drive/README.md)) |
+| `src/chatui/` | Pergunta/resposta com fontes ([detalhes](src/chatui/README.md)) |
+| `src/infra/` | Compose, edge openresty, scripts de backup e atualização |
 | `src/content/normalize/` | Padrão editorial dos documentos |
 | `docs/` | Arquitetura, operação, segurança e decisões |
-| `plans/` | Visão do produto e contrato do importador |
 
-## Para onde ir
+O chat (`POST /ask`) devolve a melhor resposta com `sources[]` (link + score) ou `notFound` abaixo do corte (`CHAT_MIN_SCORE`). Por workspace, o melhor top-score vence; erro num workspace degrada sem derrubar.
 
-- Quero **usar**: suba a stack (acima) e abra o wiki. Login local: `docs/runbook.md`.
-- Quero **operar** (backup, incidentes, credenciais): [`docs/runbook.md`](docs/runbook.md).
-- Quero **entender como as peças se ligam**: [`docs/architecture.md`](docs/architecture.md).
-- Quero **saber por que é assim**: [`docs/adr/`](docs/adr/).
-- Quero **mexer no código**: [`src/AGENTS.md`](src/AGENTS.md) e o README de cada serviço.
+## Contribuindo
+
+1. Leia [`src/AGENTS.md`](src/AGENTS.md) (regras de código) e [`docs/README.md`](docs/README.md) (índice da doc).
+2. `npm run verify` no serviço que você tocou — gate: `tsc` + `check-rules` + testes (tudo com mock, nada de API real).
+3. Mudou comportamento, mudou o doc correspondente no mesmo commit.
+4. Nada de segredo em código, fixture, log ou doc.
 
 ## Licença
 
