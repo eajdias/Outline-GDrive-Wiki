@@ -57,7 +57,7 @@ services:
     cpus: 0.5
 
   outline:
-    image: outlinewiki/outline:0.82.2
+    image: outlinewiki/outline:latest
     restart: unless-stopped
     env_file:
       - .env
@@ -89,7 +89,7 @@ services:
       - /tmp
 
   uploads:
-    image: nginx:1.27.4-alpine
+    image: nginx:alpine
     restart: unless-stopped
     expose:
       - "80"
@@ -115,7 +115,7 @@ services:
       - /run
 
   anythingllm:
-    image: mintplexlabs/anythingllm:1.8.5
+    image: mintplexlabs/anythingllm:latest
     restart: unless-stopped
     environment:
       STORAGE_DIR: /app/server/storage
@@ -147,7 +147,6 @@ services:
     cpus: 2.0
 
   chat:
-    image: kb-chat:${RELEASE_TAG:-dev}
     build:
       context: ../..
       dockerfile: apps/chat/Dockerfile
@@ -189,7 +188,6 @@ services:
   # Importador Drive: `serve` recebe push notification e renova o canal.
   # Para carga/incremental avulso: docker compose run --rm importer seed|apply|verify
   importer:
-    image: kb-importer:${RELEASE_TAG:-dev}
     build:
       context: ../..
       dockerfile: apps/importer/Dockerfile
@@ -230,7 +228,7 @@ services:
 
   # Edge único (openresty): wiki com injeção do snippet + app do chat em /chat/.
   edge:
-    image: openresty/openresty:1.25.3.2-bookworm
+    image: openresty/openresty:alpine
     restart: unless-stopped
     ports:
       - "127.0.0.1:${EDGE_PORT:-8091}:80"

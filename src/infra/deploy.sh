@@ -34,12 +34,6 @@ log() { printf '==> %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 compose() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_BASE" ${COMPOSE_OVERLAY:+-f "$COMPOSE_OVERLAY"} "$@"; }
 
-# Modo bundle (release tarball): imagens vêm de images/*.tar.gz, sem build.
-BUNDLE_MODE=0
-if [ -d "$INFRA_DIR/images" ] && ls "$INFRA_DIR"/images/*.tar* >/dev/null 2>&1; then
-  BUNDLE_MODE=1
-fi
-
 FILES="docker-compose.yml"
 COMPOSE_OVERLAY=""
 if [ -f "$COMPOSE_PROD" ] && [ "${DEPLOY_ENV:-dev}" = "prod" ]; then
@@ -81,22 +75,11 @@ else
   log "backup pulado (--no-backup)"
 fi
 
-log "phase 4/6 images (pull: $PULL_MODE, bundle: $BUNDLE_MODE)"
-if [ "$BUNDLE_MODE" -eq 1 ]; then
-  for img in "$INFRA_DIR"/images/*.tar*; do
-    log "docker load -i $img"
-    docker load -i "$img" || die "docker load falhou: $img"
-  done
-  PULL_MODE="never"
-fi
+log "phase 4/6 images (pull: $PULL_MODE)"
 if [ "$PULL_MODE" != "never" ]; then
   compose pull --policy "$PULL_MODE" 2>/dev/null || compose pull
 fi
-if [ "$BUNDLE_MODE" -eq 1 ]; then
-  log "bundle: imagens locais carregadas, sem build"
-else
-  compose build chat importer
-fi
+compose build chat importer
 
 log "phase 5/6 up + health-gate (timeout ${TIMEOUT}s)"
 compose up -d --wait --wait-timeout "$TIMEOUT" || {
