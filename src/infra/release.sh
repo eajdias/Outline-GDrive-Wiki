@@ -27,7 +27,7 @@ log "montando bundle $BUNDLE (fonte, sem node_modules/dist/.env/secrets)"
 rm -rf "$WORK"
 mkdir -p "$WORK"
 cd "$REPO_ROOT"
-git archive --format=tar HEAD apps packages src docs README.md LICENSE package.json package-lock.json | tar -x -C "$WORK"
+git archive --format=tar HEAD apps packages src docs scripts README.md LICENSE package.json package-lock.json | tar -x -C "$WORK"
 
 cat > "$WORK/MANIFEST.json" <<EOF
 {
