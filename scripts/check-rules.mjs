@@ -18,8 +18,6 @@ const FORBIDDEN_LAYER_IMPORTS = {
   commands: ["cli"],
 };
 
-const FORBIDDEN_PACKAGES = ["@repo/logger", "@repo/env", "@repo/http"];
-
 const violations = [];
 
 function report(file, rule, detail) {
@@ -203,11 +201,11 @@ for (const file of sourceFiles) {
   }
 }
 
-const STATIC_ENTRYPOINTS = new Set(["src/index.ts", "src/cli.ts", "src/domain/markdown.ts"]);
+const STATIC_ENTRYPOINTS = new Set(["src/index.ts", "src/cli.ts"]);
 
 for (const file of sourceFiles) {
   const relative = path.relative(ROOT, file).split(path.sep).join("/");
-  if (STATIC_ENTRYPOINTS.has(relative)) continue;
+  if (STATIC_ENTRYPOINTS.has(relative) || relative.endsWith(".entry.ts")) continue;
   if (!importedFiles.has(file)) {
     report(file, "dead-module", "no other module imports this file");
   }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { renderMarkdown } from "../src/domain/markdown.js";
+import { renderMarkdown } from "../src/domain/markdown.entry.js";
 
 test("escapes raw HTML before rendering", () => {
   assert.equal(

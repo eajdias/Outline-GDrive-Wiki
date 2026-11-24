@@ -45,7 +45,7 @@ else
   log "Skipping pre-update backup (--skip-backup)"
 fi
 
-log "Pulling outlinewiki/outline:latest"
+log "Pulling the pinned outline image"
 compose pull outline
 
 log "Applying update (recreate outline if image changed)"
@@ -74,6 +74,5 @@ if [ "$healthy" -ne 1 ]; then
 fi
 
 log "Container image after update: $(docker inspect --format '{{.Image}}' "$outline_container")"
-log "outlinewiki/outline:latest => $(docker image inspect outlinewiki/outline:latest --format '{{.Id}} {{.Created}}' 2>/dev/null || echo unknown)"
 log "Result: outline updated/recreated"
 log "=== Outline auto-update end (success) ==="

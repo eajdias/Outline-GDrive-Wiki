@@ -46,7 +46,7 @@ try {
         Write-Log "Skipping pre-update backup (-SkipBackup)"
     }
 
-    Write-Log "Pulling outlinewiki/outline:latest"
+    Write-Log "Pulling the pinned outline image"
     docker compose -f $composeFile pull outline
     if ($LASTEXITCODE -ne 0) { throw "docker compose pull outline failed with exit code $LASTEXITCODE" }
 
@@ -76,9 +76,7 @@ try {
     }
 
     $afterImage = (docker inspect --format '{{.Image}}' $outlineContainer).Trim()
-    $imageInfo = docker image inspect outlinewiki/outline:latest --format '{{.Id}} {{.Created}}' 2>$null
     Write-Log "Container image after update: $afterImage"
-    Write-Log "outlinewiki/outline:latest => $imageInfo"
     Write-Log "Result: outline updated/recreated"
     Write-Log "=== Outline auto-update end (success) ==="
 } catch {

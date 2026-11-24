@@ -1,0 +1,22 @@
+* -text
+.git
+.gitattributes
+.github
+.commandcode
+.opencode
+.vscode
+.idea
+node_modules
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+src/infra/secrets
+src/infra/backups
+src/backups
+src/infra/certs
+src/content/raw/uploads
+**/*.log
+dist
+*.tar.gz
