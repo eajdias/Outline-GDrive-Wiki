@@ -32,7 +32,9 @@ def main() -> None:
             txt = re.sub(r"`[^`]*`", "", txt)
             targets = [m.group(1) for m in TARGET_RE.finditer(txt)]
             for target in targets:
-                tgt = target.strip().replace("\\", "/")
+                tgt = target.strip().replace("\\", "/").split("#")[0]
+                if not tgt:
+                    continue
                 if tgt.startswith(("http://", "https://", "mailto:", "tel:", "#", "data:", "<", "/")):
                     continue
                 alvo = os.path.normpath(os.path.join(current, tgt))

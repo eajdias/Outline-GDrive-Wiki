@@ -18,7 +18,7 @@ Por que este projeto existe: o Outline é um ótimo wiki, mas não responde perg
 
 ## Quickstart
 
-Pré-requisitos: [Docker Desktop](https://www.docker.com/products/docker-desktop/), Node 24+ (só para `npm run verify`) e um projeto no [GCP](https://console.cloud.google.com/) com Drive API + Docs API habilitadas e uma service account com `drive.readonly` + `documents.readonly`.
+Pré-requisitos: Docker Desktop, Node 24+ (só para `npm run verify`), `.env` preenchido e JSON da service account do GCP. Passo a passo completo (GCP, chaves, boot, `seed`): [`docs/setup.md`](docs/setup.md).
 
 ```powershell
 # 1. Configurar (uma vez)
@@ -47,6 +47,7 @@ Sem HTTPS público o sincronismo roda por poll a cada 15 minutos; o `apply` for�
 
 | Preciso… | Abra |
 |---|---|
+| Subir do zero (GCP, `.env`, `seed`) | [`docs/setup.md`](docs/setup.md) |
 | Usar o wiki ou o chat | Suba a stack (acima) — login local em [`docs/runbook.md`](docs/runbook.md) |
 | Entender como as peças se ligam | [`docs/architecture.md`](docs/architecture.md) |
 | Operar: backup, incidentes, credenciais | [`docs/runbook.md`](docs/runbook.md) |
@@ -69,7 +70,7 @@ O chat (`POST /ask`) devolve a melhor resposta com `sources[]` (link + score) ou
 
 ## Contribuindo
 
-1. Leia [`src/AGENTS.md`](src/AGENTS.md) (regras de código) e [`docs/README.md`](docs/README.md) (índice da doc).
+1. Leia [`src/AGENTS.md`](src/AGENTS.md) e [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
 2. `npm run verify` na raiz (ou `--workspace` do que você tocou) — gate: `tsc` + `check-rules` + testes (tudo com mock, nada de API real).
 3. Mudou comportamento, mudou o doc correspondente no mesmo commit.
 4. Nada de segredo em código, fixture, log ou doc.
