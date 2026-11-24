@@ -57,14 +57,16 @@ services:
     cpus: 0.5
 
   outline:
-    image: outlinewiki/outline:latest
+    image: outlinewiki/outline:1.13.0
     restart: unless-stopped
     env_file:
       - .env
     expose:
       - "3000"
     ports:
-      - "3000:3000" # acesso direto local; remover no overlay de produção
+      - "3000:3000" # acesso direto local; o overlay de produção sobrescreve com !override
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-outline}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD ausente no src/infra/.env}@postgres:5432/${POSTGRES_DB:-outline}
     volumes:
       - outlinedata:/var/lib/outline/data
     depends_on:
@@ -89,12 +91,12 @@ services:
       - /tmp
 
   uploads:
-    image: nginx:alpine
+    image: nginx:1.29-alpine
     restart: unless-stopped
     expose:
       - "80"
     ports:
-      - "8080:80" # acesso direto local; remover no overlay de produção
+      - "8080:80" # acesso direto local; o overlay de produção sobrescreve com !override
     volumes:
       - ../content/raw/uploads:/usr/share/nginx/html:ro
     networks:
@@ -115,16 +117,19 @@ services:
       - /run
 
   anythingllm:
-    image: mintplexlabs/anythingllm:latest
+    image: mintplexlabs/anythingllm:1.20.0
     restart: unless-stopped
     environment:
       STORAGE_DIR: /app/server/storage
       SERVER_PORT: "3001"
-      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY ausente no src/infra/.env}
-      GEMINI_LLM_MODEL_PREF: ${GEMINI_LLM_MODEL_PREF:-gemini-2.5-flash-lite}
-      EMBEDDING_ENGINE: ${EMBEDDING_ENGINE:-gemini}
-      GEMINI_EMBEDDING_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY ausente no src/infra/.env}
+      LLM_PROVIDER: ${LLM_PROVIDER:-generic-openai}
+      GENERIC_OPEN_AI_BASE_PATH: http://llm-gateway:8090/v1
+      GENERIC_OPEN_AI_MODEL_PREF: ${GEMINI_LLM_MODEL_PREF:-gemini-2.5-flash-lite}
+      GENERIC_OPEN_AI_API_KEY: ${LLM_GATEWAY_TOKEN:-none}
+      GENERIC_OPEN_AI_MODEL_TOKEN_LIMIT: ${GENERIC_OPEN_AI_MODEL_TOKEN_LIMIT:-8192}
+      EMBEDDING_ENGINE: ${EMBEDDING_ENGINE:-generic-openai}
+      EMBEDDING_BASE_PATH: http://llm-gateway:8090/v1
+      GENERIC_OPEN_AI_EMBEDDING_API_KEY: ${LLM_GATEWAY_TOKEN:-none}
       EMBEDDING_MODEL_PREF: ${EMBEDDING_MODEL_PREF:-gemini-embedding-001}
       EMBEDDING_OUTPUT_DIMENSIONS: ${EMBEDDING_OUTPUT_DIMENSIONS:-2048}
       VECTOR_DB: ${VECTOR_DB:-lancedb}
@@ -136,6 +141,9 @@ services:
     networks:
       - front
       - back
+    depends_on:
+      llm-gateway:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3001/api/ping >/dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -145,6 +153,42 @@ services:
     logging: *logging
     mem_limit: 2g
     cpus: 2.0
+
+  # Roteador de cota: fica entre AnythingLLM e os provedores LLM.
+  # Rotaciona as chaves quando uma atinge 429 e troca de provedor quando todas esgotam.
+  llm-gateway:
+    build:
+      context: ../..
+      dockerfile: apps/llm-gateway/Dockerfile
+    restart: unless-stopped
+    environment:
+      LLM_GATEWAY_PROVIDERS: ${LLM_GATEWAY_PROVIDERS:-gemini}
+      LLM_GATEWAY_TOKEN: ${LLM_GATEWAY_TOKEN:-}
+      LLM_GATEWAY_EMBEDDING_DIMENSIONS: ${EMBEDDING_OUTPUT_DIMENSIONS:-2048}
+      LLM_GATEWAY_KEY_COOLDOWN_MS: ${LLM_GATEWAY_KEY_COOLDOWN_MS:-900000}
+      GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_LLM_MODEL_PREF:-}
+      GEMINI_EMBEDDING_MODEL: ${EMBEDDING_MODEL_PREF:-}
+      GENERIC_BASE_URL: ${GENERIC_BASE_URL:-}
+      GENERIC_API_KEYS: ${GENERIC_API_KEYS:-}
+      GENERIC_MODEL: ${GENERIC_MODEL:-}
+      GENERIC_EMBEDDING_MODEL: ${GENERIC_EMBEDDING_MODEL:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - back
+    logging: *logging
+    mem_limit: 256m
+    cpus: 0.25
+    read_only: true
+    tmpfs:
+      - /tmp
 
   chat:
     build:
@@ -200,6 +244,7 @@ services:
       DRIVE_SA_KEY_PATH: /run/secrets/drive-sa.json
       OUTLINE_API_URL: http://outline:3000
       ANYTHINGLLM_API_URL: http://anythingllm:3001
+      IMPORT_CONCURRENCY: ${IMPORT_CONCURRENCY:-4}
     volumes:
       - ${DRIVE_SA_KEY_PATH:-./secrets/drive-sa.json}:/run/secrets/drive-sa.json:ro
     depends_on:
@@ -236,6 +281,7 @@ services:
       CHAT_PUBLIC_URL: ${CHAT_PUBLIC_URL:-http://127.0.0.1:8091/chat}
     volumes:
       - ./edge/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./edge/routes.conf:/usr/local/openresty/nginx/conf/routes.conf:ro
     depends_on:
       outline:
         condition: service_healthy

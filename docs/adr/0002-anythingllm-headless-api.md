@@ -8,6 +8,7 @@
 - A experiência do usuário é uma **UI própria** (`apps/chat`) que consome `POST /v1/workspace/kb-drive/chat` e exibe `textResponse` + `sources[]` (título, link para Drive/Outline, score). Workspace único: **`kb-drive`**.
 - O widget/embed nativo está **descartado como caminho de produto** (testado em 1.16.1: o stream não devolve `sources`), porque confirmação de fonte é requisito.
 - IA **100% remota via API Gemini** (chat + embeddings). Nenhum modelo local: a VPS não tem GPU nem folga para isso.
+- O Gemini é alcançado através do `llm-gateway` (ADR 0005), nunca direto: é lá que ficam as chaves e a rotação de cota.
 
 ## Consequências
 

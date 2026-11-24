@@ -21,10 +21,11 @@ Anote: caminho do JSON, ID da pasta raiz e (se Drive compartilhado) ID do Drive.
 
 Escopos usados (somente leitura, nunca escrita no Drive): `drive.readonly` + `documents.readonly`.
 
-## 2. Chave Gemini
+## 2. Chaves Gemini (quantas quiser)
 
 1. [Google AI Studio → API keys](https://aistudio.google.com/apikey) → **Create API key**. Uma chave serve para chat **e** embeddings.
-2. Guarde: quota gratuita cobre dev e acervos pequenos; em produção com muito embed, acompanhe em [AI Studio → Usage](https://aistudio.google.com/) (429/503 no chat quase sempre é quota).
+2. Repita em outras contas Google e junte as chaves em `GEMINI_API_KEYS` (separadas por vírgula, ordem de preferência). O `llm-gateway` alterna entre elas quando uma bate no limite de cota — é assim que várias cotas gratuitas somam.
+3. Guarde: a cota é por conta; em produção com muito embed, acompanhe em [AI Studio → Usage](https://aistudio.google.com/) (429/503 no chat quase sempre é cota).
 
 ## 3. Preencher o `.env`
 
@@ -47,7 +48,8 @@ Preencha nesta ordem (só o que tem `=` vazio precisa de você; o resto já vem 
 |---|---|---|
 | `SECRET_KEY`, `UTILS_SECRET` | `openssl rand -hex 32` (um por linha) | `9f2c…` (64 hex) |
 | `POSTGRES_PASSWORD` | invente uma senha forte local | — |
-| `GEMINI_API_KEY` | passo 2 | `AIza…` |
+| `GEMINI_API_KEYS` | passo 2, uma ou mais chaves separadas por vírgula | `AIza-conta1,AIza-conta2` |
+| `LLM_GATEWAY_TOKEN` | `openssl rand -hex 32` (autentica o gateway internamente) | — |
 | `ANYTHINGLLM_JWT_SECRET`, `ANYTHINGLLM_AUTH_TOKEN` | `openssl rand -hex 32` cada | — |
 | `ANYTHINGLLM_API_KEY` | **depois do primeiro boot** (passo 4) | `…` |
 | `DRIVE_SA_KEY_PATH` | caminho do JSON do passo 1 (no host) | Linux `~/.secrets/kb/drive-sa.json` · Win `%USERPROFILE%\.secrets\kb\drive-sa.json` |
@@ -56,10 +58,10 @@ Preencha nesta ordem (só o que tem `=` vazio precisa de você; o resto já vem 
 | `OUTLINE_API_KEY` | **depois do primeiro boot** (passo 4) | `ol_api_…` |
 | `OUTLINE_DEFAULT_COLLECTION_ID` | idem (passo 4, opcional) | `b5d…` |
 | `DRIVE_WEBHOOK_URL` | só produção com HTTPS (ex. `https://wiki.exemplo.com.br/hooks/drive`); vazio = poll a cada 15 min | — |
-| `DRIVE_WEBHOOK_TOKEN` | invente um token se usar webhook | — |
+| `DRIVE_WEBHOOK_TOKEN` | obrigatório se usar webhook (sem ele o importador recusa toda notificação) | — |
 | `STATE_DATABASE_URL` | já vem montado com `POSTGRES_*`; só ajuste se mudar o banco | `postgres://outline:…@postgres:5432/outline` |
 
-Não mexa (a menos que saiba por quê): URLs internas (`OUTLINE_API_URL`, `ANYTHINGLLM_API_URL`, `REDIS_URL`), portas, `*_MS`, `IMPORT_CONCURRENCY`, `CHAT_*` (limites), `OUTLINE_PUBLIC_URL` (só produção).
+Não mexa (a menos que saiba por quê): URLs internas (`OUTLINE_API_URL`, `ANYTHINGLLM_API_URL`, `REDIS_URL`, `GENERIC_OPEN_AI_BASE_PATH`), portas, `*_MS`, `IMPORT_CONCURRENCY`, `CHAT_*` (limites), `LLM_GATEWAY_*` (política de cota), `EMBEDDING_OUTPUT_DIMENSIONS` (depois do seed), `OUTLINE_PUBLIC_URL` (só produção).
 
 ## 4. Primeiro boot + chaves geradas pelos serviços
 
@@ -67,6 +69,8 @@ Não mexa (a menos que saiba por quê): URLs internas (`OUTLINE_API_URL`, `ANYTH
 docker compose -f src/infra/docker-compose.yml up -d
 docker compose -f src/infra/docker-compose.yml ps   # tudo healthy
 ```
+
+O `llm-gateway` precisa de `GEMINI_API_KEYS` (ou `GEMINI_API_KEY`) e recusa subir sem ela; o AnythingLLM espera o gateway ficar `healthy`.
 
 Agora gere as duas chaves que só existem depois do boot:
 
@@ -119,4 +123,5 @@ Se algo falhou, veja a tabela abaixo. Se passou tudo: operação diária em [`ru
 | Outline vazio após `seed` | token do importador sem escrita; `OUTLINE_COLLECTION_MAP` sem a pasta (e sem default) |
 | Chat sempre "não encontrei" | workspace vazio (`seed` não rodou) ou `CHAT_MIN_SCORE` alto demais; confira `verify` |
 | `verify` exit 1 logo no início | normal antes do primeiro `seed` completo — rode `seed`, depois `verify` |
-| AnythingLLM 429/503 | quota Gemini; backoff e tente de novo; em produção suba `IMPORT_CONCURRENCY` com cautela |
+| AnythingLLM 429/503 | cota de todas as chaves esgotou: confira `GET /healthz` do gateway e acrescente outra conta em `GEMINI_API_KEYS` |
+| `llm-gateway` unhealthy no boot | `GEMINI_API_KEYS` (ou `GEMINI_API_KEY`) vazio — o gateway se recusa a subir sem chave |

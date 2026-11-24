@@ -55,7 +55,39 @@ Webhook só chega com HTTPS público (`DRIVE_WEBHOOK_URL`); sem ele, poll a cada
 | chat 413 / 429 | encurtar a pergunta / esperar a janela (Redis compartilhado entre réplicas) |
 | chat sempre "não encontrei" | `verify`; ajustar `CHAT_MIN_SCORE` com evidência |
 | bolha sumiu | snippet injetado? `script-src` no CSP? |
-| 429/503 | backoff, conferir quota da Gemini |
+| 429/503 | cota esgotada em todas as chaves — ver seção abaixo |
+
+### Cota do LLM (llm-gateway)
+
+O gateway troca de chave sozinho no `429` e volta a ela após `LLM_GATEWAY_KEY_COOLDOWN_MS` (15 min). Estado atual:
+
+```bash
+docker compose -f src/infra/docker-compose.yml exec -T llm-gateway wget -qO- http://127.0.0.1:8090/healthz
+# {"status":"ok","upstreams":[{"name":"gemini","keys":{"total":3,"cooling":1,"nextRetryMs":420000}}]}
+```
+
+Log de cada request traz `upstream`, `keyIndex` e `status`:
+
+```bash
+docker compose -f src/infra/docker-compose.yml logs --tail 100 llm-gateway
+```
+
+Acabaram as chaves? Acrescente outra conta em `GEMINI_API_KEYS` e recrie só o gateway:
+
+```bash
+docker compose -f src/infra/docker-compose.yml up -d llm-gateway
+```
+
+Reiniciar o gateway zera os cooldowns (estado em memória).
+
+### 443 sem responder
+
+O overlay de produção usa `edge/nginx.tls.conf`. Se o edge não sobe, faltam os certificados:
+
+```bash
+ls -l src/infra/certs/fullchain.pem src/infra/certs/privkey.pem
+docker compose -f src/infra/docker-compose.yml -f src/infra/docker-compose.prod.yml logs --tail 50 edge
+```
 
 ```bash
 docker compose -f src/infra/docker-compose.yml up -d chat edge
@@ -118,7 +150,7 @@ Windows: `pwsh ... -File src/infra/scripts/open-outline-session.ps1` · Linux: `
 
 - `SECRET_KEY`/`UTILS_SECRET`, senha do Postgres: `.env` + restart.
 - API key do AnythingLLM: gere de novo (ver [`setup.md`](setup.md#4-primeiro-boot--chaves-geradas-pelos-serviços)), atualize `.env`.
-- Chave Gemini: `update-env` do AnythingLLM.
+- Chaves Gemini: edite `GEMINI_API_KEYS` (lista separada por vírgula) e recrie o gateway. Revogar uma conta = remover da lista.
 - API key do Outline: Settings → API + `.env`.
 - Service account: nova chave no GCP + `DRIVE_SA_KEY_PATH`.
 

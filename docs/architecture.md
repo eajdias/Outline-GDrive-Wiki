@@ -36,6 +36,7 @@ flowchart TB
     Chat["chat :8080<br/>(POST /ask)"]
     Importer["importer :8787<br/>(seed · apply · verify · serve)"]
     RAG["anythingllm :3001<br/>(workspace kb-drive, /v1)"]
+    Gateway["llm-gateway :8090<br/>(rotação de chave/provedor)"]
     PG["postgres<br/>(Outline + estado do importer)"]
     Redis["redis<br/>(Outline + rate-limit do chat)"]
 
@@ -44,6 +45,8 @@ flowchart TB
     Edge -->|"POST /hooks/drive"| Importer
     Edge -->|"GET /drive-image/..."| Importer
     Chat -->|"POST /v1/workspace/.../chat"| RAG
+    RAG -->|"chat + embeddings"| Gateway
+    Gateway -->|"cota esgotada? próxima chave"| Gemini
     Importer -->|"documents.* (hash)"| Outline
     Importer -->|"raw-text + metadata"| RAG
     Chat -.->|"INCR + PEXPIRE (rate-limit)"| Redis
@@ -55,6 +58,7 @@ flowchart TB
 |---|---|---|
 | `apps/importer` | Espelha Drive → Outline e Drive → AnythingLLM; serve imagens | Único escrevente no Outline |
 | `apps/chat` | Pergunta/resposta sobre `/v1/chat`, devolve resposta com fontes | API key só no backend; corta abaixo de `CHAT_MIN_SCORE` |
+| `apps/llm-gateway` | Roteia chat e embeddings para os provedores LLM | Rotaciona chaves no 429 e troca de provedor quando todas esgotam; contrato em `apps/llm-gateway/README.md` |
 | edge (openresty) | Wiki + chat + webhook + imagens num ponto | Ver [`security.md`](security.md) |
 | PostgreSQL / Redis | Estado do importer + persistência do Outline; rate-limit do chat | Rede interna, sem porta publicada |
 
@@ -102,10 +106,14 @@ sequenceDiagram
 
 O widget nativo do AnythingLLM não devolve `sources` — por isso a UI própria é o único caminho (ver ADR 0002). Limites e erros: [`runbook.md`](runbook.md).
 
+## Cota do LLM
+
+O AnythingLLM não fala com o Gemini direto: aponta para o `llm-gateway`, que guarda as chaves. Cada `429` tira a chave de rotação por um cooldown e passa para a próxima; quando todas esgotam, o gateway desce para o próximo provedor de `LLM_GATEWAY_PROVIDERS`. `GET /healthz` do gateway mostra quantas chaves estão em cooldown. Contrato e env em `apps/llm-gateway/README.md`.
+
 ## Limites assumidos
 
 - Outline não tem busca vetorial: serve leitura, não pergunta.
 - Sem autenticação por documento na v1 — quem alcança o chat vê o acervo inteiro (ver [`security.md`](security.md)).
-- Produção expõe 22/80/443; Postgres, Redis, AnythingLLM e importer nunca publicam porta.
+- Produção expõe 22/80/443; Postgres, Redis, AnythingLLM, llm-gateway, chat e importer nunca publicam porta.
 
 Decisões que explicam o "porquê": [`adr/`](adr/).

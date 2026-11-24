@@ -12,10 +12,13 @@ docker compose -f src/infra/docker-compose.yml logs -f outline
 |---|---|---|
 | `outline` | 3000 (acesso direto) | wiki de leitura |
 | `postgres` / `redis` | internas | persistência do Outline |
+| `llm-gateway` | interna (8090) | rota chat/embeddings entre o AnythingLLM e os provedores; roda chaves e provedores no 429 |
 | `anythingllm` | interna | RAG headless, só `/api/v1` (`kb-drive`) |
 | `chat` | interna | pergunta/resposta com citações |
 | `importer` | interna (8787) | `serve` + one-shot `seed`/`apply`/`verify` |
 | `edge` | 127.0.0.1:8091 | wiki + `/chat/` + `/hooks/drive` + `/drive-image/` |
 | `uploads` | 8080 | nginx legado de anexos antigos |
+
+Produção: `docker compose -f docker-compose.yml -f docker-compose.prod.yml` — só o edge publica (80/443, TLS) e o `!override` remove as portas de dev.
 
 `.env` a partir de `.env.example` (nunca versionado). Conteúdo vem do Drive; `outlinedata` guarda só anexos/avatares.
