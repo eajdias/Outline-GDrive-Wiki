@@ -1,0 +1,10 @@
+[Unit]
+Description=Outline GDrive Wiki daily backup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/outline-gdrive-wiki/src/infra
+ExecStart=/usr/bin/docker compose -f docker-compose.yml run --rm backup
+ExecStartPost=/usr/bin/sh -c 'test -n "$(ls -t /srv/outline-gdrive-wiki/src/backups/pg-*.dump 2>/dev/null | head -1)"'

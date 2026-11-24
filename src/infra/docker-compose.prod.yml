@@ -1,0 +1,23 @@
+# Overlay de produção: limites mais altos, sem portas de acesso direto,
+# TLS no edge. Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Pré-requisitos no host: ./certs/fullchain.pem + ./certs/privkey.pem,
+# .env.production (ou .env) com segredos reais.
+
+services:
+  outline:
+    ports: [] # sem acesso direto; só via edge
+    environment:
+      URL: ${OUTLINE_PUBLIC_URL:?OUTLINE_PUBLIC_URL ausente}
+      FORCE_HTTPS: "true"
+
+  uploads:
+    ports: [] # anexos só via edge/wiki
+
+  edge:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro

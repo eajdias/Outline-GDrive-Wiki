@@ -1,0 +1,9 @@
+[Unit]
+Description=Outline GDrive Wiki daily convergence verify
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/outline-gdrive-wiki/src/infra
+ExecStart=/usr/bin/docker compose -f docker-compose.yml run --rm --no-deps importer verify

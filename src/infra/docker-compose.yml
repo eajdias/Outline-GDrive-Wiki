@@ -2,13 +2,24 @@
 #   docker compose -f src/infra/docker-compose.yml <comando>
 # Project directory = src/infra/ : env_file ".env" resolve para src/infra/.env
 # e o mount ../content/raw/uploads resolve para src/content/raw/uploads.
+#
+# Base dev (esta arquivo) + overlay de produção (docker-compose.prod.yml):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 name: outline-gdrive-wiki
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    compress: "true"
 
 services:
   postgres:
     image: postgres:18.6-alpine
     restart: unless-stopped
+    shm_size: 128mb
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-outline}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD ausente no src/infra/.env}
@@ -16,35 +27,44 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql # PG18+: mount no parent (entrypoint recusa mount direto em .../data; dados vão p/ subdir versionado)
     networks:
-      - kb-net
+      - back
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-outline} -d $${POSTGRES_DB:-outline}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
+    logging: *logging
+    mem_limit: 1g
+    cpus: 1.0
 
   redis:
     image: redis:8.6-alpine
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redisdata:/data
     networks:
-      - kb-net
+      - back
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+    logging: *logging
+    mem_limit: 512m
+    cpus: 0.5
 
   outline:
     image: outlinewiki/outline:latest
     restart: unless-stopped
     env_file:
       - .env
+    expose:
+      - "3000"
     ports:
-      - "3000:3000"
+      - "3000:3000" # acesso direto local; remover no overlay de produção
     volumes:
       - outlinedata:/var/lib/outline/data
     depends_on:
@@ -59,17 +79,40 @@ services:
       retries: 10
       start_period: 30s
     networks:
-      - kb-net
+      - front
+      - back
+    logging: *logging
+    mem_limit: 1g
+    cpus: 1.0
+    read_only: false # Outline escreve uploads no volume próprio
+    tmpfs:
+      - /tmp
 
   uploads:
     image: nginx:alpine
     restart: unless-stopped
+    expose:
+      - "80"
     ports:
-      - "8080:80"
+      - "8080:80" # acesso direto local; remover no overlay de produção
     volumes:
       - ../content/raw/uploads:/usr/share/nginx/html:ro
     networks:
-      - kb-net
+      - front
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging: *logging
+    mem_limit: 128m
+    cpus: 0.25
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /run
 
   anythingllm:
     image: mintplexlabs/anythingllm:latest
@@ -91,20 +134,25 @@ services:
     volumes:
       - anythingllmdata:/app/server/storage
     networks:
-      - kb-net
+      - front
+      - back
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3001/api/ping >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 120s
+    logging: *logging
+    mem_limit: 2g
+    cpus: 2.0
 
-  chatui:
+  chat:
     build:
       context: ../..
       dockerfile: apps/chat/Dockerfile
     restart: unless-stopped
     environment:
+      REDIS_URL: redis://redis:6379
       ANYTHINGLLM_API_URL: http://anythingllm:3001
       ANYTHINGLLM_API_KEY: ${ANYTHINGLLM_API_KEY:?ANYTHINGLLM_API_KEY ausente no src/infra/.env}
       ANYTHINGLLM_WORKSPACES: ${ANYTHINGLLM_WORKSPACES:-kb-drive}
@@ -119,6 +167,8 @@ services:
     depends_on:
       anythingllm:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null 2>&1 || exit 1"]
       interval: 15s
@@ -126,11 +176,18 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - kb-net
+      - front
+      - back
+    logging: *logging
+    mem_limit: 512m
+    cpus: 0.5
+    read_only: true
+    tmpfs:
+      - /tmp
 
   # Importador Drive: `serve` recebe push notification e renova o canal.
-  # Para carga/incremental avulso: docker compose run --rm import-drive seed|apply|verify
-  import-drive:
+  # Para carga/incremental avulso: docker compose run --rm importer seed|apply|verify
+  importer:
     build:
       context: ../..
       dockerfile: apps/importer/Dockerfile
@@ -138,6 +195,7 @@ services:
     env_file:
       - .env
     environment:
+      REDIS_URL: redis://redis:6379
       IMPORTS_DB_PATH: /data/imports.db
       DRIVE_SA_KEY_PATH: /run/secrets/drive-sa.json
       OUTLINE_API_URL: http://outline:3000
@@ -150,8 +208,22 @@ services:
         condition: service_healthy
       anythingllm:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${IMPORT_DRIVE_PORT:-8787}/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     networks:
-      - kb-net
+      - back
+    logging: *logging
+    mem_limit: 512m
+    cpus: 0.5
+    read_only: true
+    tmpfs:
+      - /tmp
 
   # Edge único (openresty): wiki com injeção do snippet + app do chat em /chat/.
   edge:
@@ -166,15 +238,60 @@ services:
     depends_on:
       outline:
         condition: service_healthy
-      chatui:
+      chat:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
-      - kb-net
+      - front
+    logging: *logging
+    mem_limit: 256m
+    cpus: 0.5
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run
+
+  # Backup one-shot: chamado pelo timer do host.
+  #   docker compose -f src/infra/docker-compose.yml run --rm backup
+  backup:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-outline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD ausente no src/infra/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-outline}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}
+    volumes:
+      - pgdata:/var/lib/postgresql:ro
+      - redisdata:/redis:ro
+      - outlinedata:/wiki-data:ro
+      - anythingllmdata:/rag-data:ro
+      - importdata:/importer-data:ro
+      - ../backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    networks:
+      - back
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    profiles: ["tools"]
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 2
+        window: 120s
 
 networks:
-  kb-net:
-    name: kb-net # nome fixo (sem prefixo do projeto)
-    driver: bridge
+  front:
+    name: kb-front
+  back:
+    name: kb-back
 
 volumes:
   pgdata:

@@ -15,13 +15,21 @@ docker compose -f src/infra/docker-compose.yml down   # nunca down -v sem backup
 - Acesso direto (sem edge): http://127.0.0.1:3000
 - Wiki mostrando conteúdo velho é cache de aba: abra `/reset` e recarregue.
 
+Produção (overlay, sem portas de acesso direto, TLS no edge):
+
+```bash
+docker compose -f src/infra/docker-compose.yml -f src/infra/docker-compose.prod.yml up -d
+```
+
+Pré-requisitos no host: `./certs/fullchain.pem` + `./certs/privkey.pem` em `src/infra/certs/` e `OUTLINE_PUBLIC_URL` com o domínio público.
+
 ## Importador
 
 ```powershell
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive seed    # carga inicial
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive apply   # incremental
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive verify  # convergência (exit 1 = divergência)
-docker compose -f src/infra/docker-compose.yml up -d import-drive                      # webhook + renovação + poll
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer seed    # carga inicial
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer apply   # incremental
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verify  # convergência (exit 1 = divergência)
+docker compose -f src/infra/docker-compose.yml up -d importer                      # webhook + renovação + poll
 ```
 
 - Webhook (`changes.watch` → `DRIVE_WEBHOOK_URL`) só chega em HTTPS público. Sem ele, o `serve` faz poll (`DRIVE_POLL_INTERVAL_MS`, 15 min) e o `apply` manual força.
@@ -31,17 +39,39 @@ docker compose -f src/infra/docker-compose.yml up -d import-drive               
 
 ## Backup e restore
 
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File src/infra/scripts/backup-postgres.ps1
-```
-
-Gera dump em `src/backups/` e testa o restore num banco scratch, comparando a contagem de documentos vivos. Sem teste, o backup não conta. Restore testado todo mês.
-
-Linux (produção):
+Backup diário via timer do host (systemd). Instalação (uma vez, no servidor):
 
 ```bash
-docker compose -f src/infra/docker-compose.yml exec -T postgres pg_dump -U outline -Fc outline -f /tmp/outline-backup.dump
-docker compose -f src/infra/docker-compose.yml cp postgres:/tmp/outline-backup.dump src/backups/outline-$(date +%Y%m%d-%H%M).dump
+sudo cp src/infra/systemd/backup.service src/infra/systemd/backup.timer /etc/systemd/system/
+sudo sed -i "s|/srv/outline-gdrive-wiki|$(pwd)|" /etc/systemd/system/backup.service
+sudo systemctl daemon-reload && sudo systemctl enable --now backup.timer
+systemctl list-timers backup.timer   # confirma o agendamento
+```
+
+Manual (fora do timer):
+
+```bash
+docker compose -f src/infra/docker-compose.yml run --rm backup
+```
+
+Gera em `src/backups/`: `pg-<data>.dump` (Postgres `-Fc`), `globals-<data>.sql.gz` (roles) e `files-<data>.tgz` (Redis AOF, uploads do Outline, storage do AnythingLLM, `imports.db`). O script valida (`pg_restore --list`, `gunzip -t`, `tar -tzf`) e retém os últimos `BACKUP_KEEP_DAILY` (default 7). Sem validação, o backup não conta. Copie para fora do disco (S3/rclone) — mesmo disco não é backup.
+
+Windows (dev local): o equivalente é `src/infra/scripts/backup-postgres.ps1` (só Postgres; produção usa o job `backup` acima).
+
+Restore testado todo mês num banco scratch:
+
+```bash
+docker compose -f src/infra/docker-compose.yml exec -T postgres psql -U outline -d postgres -c "CREATE DATABASE restore_test;"
+docker compose -f src/infra/docker-compose.yml exec -T postgres pg_restore -U outline -d restore_test --no-owner /backups/pg-<data>.dump
+```
+
+## Convergência diária
+
+O `verify` roda todo dia via timer (mesma instalação do backup, com `verify.service`/`verify.timer`). Divergência aparece no journal:
+
+```bash
+sudo journalctl -u verify.service --since "24h ago" | tail -20
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verify
 ```
 
 ## Atualizar o Outline
@@ -60,7 +90,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File src/infra/scripts/open-outline-ses
 
 ## Chat: limites e erros
 
-Limites (de `src/infra/.env.example`): corpo 8 KB, 10 perguntas por janela/IP, pergunta até 1000 chars, corte `CHAT_MIN_SCORE` (0.65).
+Limites (de `src/infra/.env.example`): corpo 8 KB, 10 perguntas por janela/IP (Redis compartilhado, vale para todas as réplicas), pergunta até 1000 chars, corte `CHAT_MIN_SCORE` (0.65).
 
 | Viu isso | Faça isso |
 |---|---|
@@ -74,8 +104,8 @@ Limites (de `src/infra/.env.example`): corpo 8 KB, 10 perguntas por janela/IP, p
 Logs do chat:
 
 ```powershell
-docker compose -f src/infra/docker-compose.yml up -d chatui edge
-docker compose -f src/infra/docker-compose.yml logs --tail 100 chatui
+docker compose -f src/infra/docker-compose.yml up -d chat edge
+docker compose -f src/infra/docker-compose.yml logs --tail 100 chat
 ```
 
 ## Trocar credencial
