@@ -1,0 +1,35 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.local
+*.local.json
+
+# Backups and database dumps (canonical dir: src/backups/ — só o .gitkeep)
+/backups/
+src/infra/backups/
+src/backups/*
+!src/backups/.gitkeep
+*.dump
+*.sql
+*.sql.gz
+*.tar
+*.tar.gz
+
+# Runtimes
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+
+# Tooling artifacts
+.commandcode/
+.opencode/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+
+# Service account keys (nunca versionar — só o .gitkeep)
+src/infra/secrets/*
+!src/infra/secrets/.gitkeep
