@@ -4,7 +4,7 @@
 
 1. Este arquivo.
 2. [`docs/README.md`](docs/README.md) — índice; o conteúdo mora em `architecture.md`, `runbook.md`, `security.md` e `adr/`.
-3. O `AGENTS.md` da área: `src/` (código), `src/infra/` (compose/env), `src/content/` (norma editorial), `docs/` (sincronia doc↔código).
+3. O `AGENTS.md` da área: `src/` (código), `apps/*` (serviços), `packages/*` (compartilhado), `src/infra/` (compose/env), `src/content/` (norma editorial), `docs/` (sincronia doc↔código).
 
 ## O que é verdade onde
 

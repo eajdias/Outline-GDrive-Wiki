@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Página de exemplo — widget embedado</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; }
+      ol { line-height: 1.8; }
+    </style>
+  </head>
+  <body>
+    <h1>Página terceira (exemplo)</h1>
+    <p>Esta página simula um site qualquer usando o chat via snippet.</p>
+    <ol>
+      <li>Procure a <strong>bolha verde</strong> no canto inferior direito.</li>
+      <li>Clique nela: o painel do chat abre num iframe servido pelo chatui.</li>
+      <li>Pergunte algo do acervo, ex.: "Como configurar o acesso VPN?"</li>
+    </ol>
+    <p>Para origem realmente cruzada, sirva esta página noutra porta (<code>python -m http.server 8099 --directory apps/chat/public</code>) e abra <code>http://127.0.0.1:8099/embed-demo.html</code>.</p>
+
+    <!-- Troque data-chat-src pelo host público do chat em produção -->
+    <script src="http://127.0.0.1:8091/chat/widget.js" data-chat-src="http://127.0.0.1:8091/chat" defer></script>
+  </body>
+</html>

@@ -101,7 +101,8 @@ services:
 
   chatui:
     build:
-      context: ../chatui
+      context: ../..
+      dockerfile: apps/chat/Dockerfile
     restart: unless-stopped
     environment:
       ANYTHINGLLM_API_URL: http://anythingllm:3001
@@ -131,7 +132,8 @@ services:
   # Para carga/incremental avulso: docker compose run --rm import-drive seed|apply|verify
   import-drive:
     build:
-      context: ../import-drive
+      context: ../..
+      dockerfile: apps/importer/Dockerfile
     restart: unless-stopped
     env_file:
       - .env

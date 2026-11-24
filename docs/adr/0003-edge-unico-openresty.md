@@ -1,6 +1,6 @@
 # ADR 0003 — Edge único openresty: wiki com snippet + chat + imagens
 
-**Status:** aceito (2026-11-19)
+**Status:** aceito 
 
 ## Decisão
 

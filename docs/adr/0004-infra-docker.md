@@ -1,6 +1,6 @@
 # ADR 0004 — Infra: Docker Compose, storage local, backup local, VPS
 
-**Status:** aceito (2026-11-17)
+**Status:** aceito 
 
 ## Decisão
 

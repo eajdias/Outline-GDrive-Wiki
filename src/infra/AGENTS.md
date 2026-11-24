@@ -1,6 +1,6 @@
 # AGENTS.md — src/infra/
 
-Compose do projeto (`outline-gdrive-wiki`, rede `kb-net`): Outline + Postgres + Redis, AnythingLLM headless, chatui, import-drive e edge openresty.
+Compose do projeto (`outline-gdrive-wiki`, rede `kb-net`): Outline + Postgres + Redis, AnythingLLM headless, chat (`apps/chat`), importer (`apps/importer`) e edge openresty. Dockerfiles com contexto na raiz do repo.
 
 - **Só o edge publica porta:** `127.0.0.1:8091` (`/`, `/chat/`, `/hooks/drive`, `/drive-image/`). Outline `:3000` serve o acesso direto; o resto nunca publica.
 - **Importador:** one-shot com `docker compose run --rm --no-deps import-drive seed|apply|verify`; `up -d import-drive` para o `serve`. Webhook exige HTTPS público; no local, poll/`apply` resolve.

@@ -58,8 +58,9 @@ Estrutura:
 
 | Pasta | O quê |
 |---|---|
-| `src/import-drive/` | Espelha Drive → Outline + AnythingLLM ([detalhes](src/import-drive/README.md)) |
-| `src/chatui/` | Pergunta/resposta com fontes ([detalhes](src/chatui/README.md)) |
+| `apps/importer/` | Espelha Drive → Outline + AnythingLLM ([detalhes](apps/importer/README.md)) |
+| `apps/chat/` | Pergunta/resposta com fontes ([detalhes](apps/chat/README.md)) |
+| `packages/` | Compartilhado: `@repo/env`, `@repo/logger`, `@repo/http`, `@repo/typescript-config` |
 | `src/infra/` | Compose, edge openresty, scripts de backup e atualização |
 | `src/content/normalize/` | Padrão editorial dos documentos |
 | `docs/` | Arquitetura, operação, segurança e decisões |
@@ -69,7 +70,7 @@ O chat (`POST /ask`) devolve a melhor resposta com `sources[]` (link + score) ou
 ## Contribuindo
 
 1. Leia [`src/AGENTS.md`](src/AGENTS.md) (regras de código) e [`docs/README.md`](docs/README.md) (índice da doc).
-2. `npm run verify` no serviço que você tocou — gate: `tsc` + `check-rules` + testes (tudo com mock, nada de API real).
+2. `npm run verify` na raiz (ou `--workspace` do que você tocou) — gate: `tsc` + `check-rules` + testes (tudo com mock, nada de API real).
 3. Mudou comportamento, mudou o doc correspondente no mesmo commit.
 4. Nada de segredo em código, fixture, log ou doc.
 

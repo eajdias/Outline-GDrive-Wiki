@@ -1,0 +1,27 @@
+{
+  "name": "@kb/importer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "check": "node ../../scripts/check-rules.mjs .",
+    "test": "npm run build && npm run check && node --test dist/test/",
+    "verify": "npm run lint && npm run check && npm test",
+    "start": "node dist/src/cli.js serve"
+  },
+  "dependencies": {
+    "@repo/env": "*",
+    "@repo/http": "*",
+    "@repo/logger": "*"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "@types/node": "^24.9.2",
+    "typescript": "^5.9.3"
+  }
+}

@@ -27,8 +27,8 @@ flowchart TB
 
 | Peça | Papel | Detalhe de acesso |
 |---|---|---|
-| `src/import-drive` | Espelha Drive → Outline e Drive → AnythingLLM; serve imagens | Único escrevente no Outline; lê o Drive com `drive.readonly` |
-| `src/chatui` | Pergunta/resposta sobre `/v1/chat`, devolve resposta com fontes | API key só no backend; corta abaixo de `CHAT_MIN_SCORE` |
+| `apps/importer` | Espelha Drive → Outline e Drive → AnythingLLM; serve imagens | Único escrevente no Outline; lê o Drive com `drive.readonly` |
+| `apps/chat` | Pergunta/resposta sobre `/v1/chat`, devolve resposta com fontes | API key só no backend; corta abaixo de `CHAT_MIN_SCORE` |
 | edge (openresty) | Wiki + chat + webhook + imagens num ponto | Ver [`security.md`](security.md); limites em [`runbook.md`](runbook.md) |
 | PostgreSQL / Redis | Persistência do Outline | Rede interna, sem porta publicada |
 
@@ -47,7 +47,7 @@ flowchart LR
     F --> G["verify compara Drive ↔ estado ↔ workspace"]
 ```
 
-Regras de seleção: entram só Google Docs; pastas listadas em `IMPORT_DRIVE_IGNORE_FOLDERS` ficam fora; cada pasta espelha a coleção homônima (`OUTLINE_COLLECTION_MAP` por ID quando configurado), ou cai na coleção default (`OUTLINE_DEFAULT_COLLECTION_ID`). O canal do Drive expira em até 7 dias — o `serve` renova antes e expõe o estado em `GET /healthz`. Comandos em [`runbook.md`](runbook.md); formato `raw-text` e demais detalhes em `src/import-drive/README.md`.
+Regras de seleção: entram só Google Docs; pastas listadas em `IMPORT_DRIVE_IGNORE_FOLDERS` ficam fora; cada pasta espelha a coleção homônima (`OUTLINE_COLLECTION_MAP` por ID quando configurado), ou cai na coleção default (`OUTLINE_DEFAULT_COLLECTION_ID`). O canal do Drive expira em até 7 dias — o `serve` renova antes e expõe o estado em `GET /healthz`. Comandos em [`runbook.md`](runbook.md); formato `raw-text` e demais detalhes em `apps/importer/README.md`.
 
 ## Imagens inline
 
