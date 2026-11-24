@@ -16,7 +16,9 @@ Regras de código para `apps/importer`, `apps/chat`, `packages/*` e scripts em `
 
 ## Camadas (só `apps/*`)
 
-`domain/` (regra pura, só stdlib) → `ports/` (contrato de I/O) → `usecases/` (orquestra) → `commands/` (um caso por arquivo) → `infra/` (config, clients, composition root em `index.ts` ou `context.ts`).
+`domain/` (regra pura, só stdlib) → `ports/` (contrato de I/O) → `usecases/` (orquestra) → `commands/` (só importer; um caso por arquivo) → `infra/` (config, clients, composition root em `context.ts`).
+
+Estado do importer vive no Postgres (`STATE_DATABASE_URL`); rate-limit do chat vive no Redis compartilhado (`REDIS_URL`), com fallback em memória.
 
 Falha o gate: `domain` importando outra camada; `process.env` fora de `infra/config.ts`; `console.*` fora de `@repo/logger`; `export default`, `any`, `require()`, `catch` vazio, `TODO`/`FIXME`.
 
