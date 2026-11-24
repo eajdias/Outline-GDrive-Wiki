@@ -1,10 +1,10 @@
 # Runbook
 
-Comandos a partir da raiz do repo. Local: Windows + Docker Desktop. Produção: Ubuntu. O "porquê" de cada peça está em [`architecture.md`](architecture.md); aqui só o passo a passo.
+Comandos a partir da raiz do repo. Funciona igual no Windows (PowerShell 7) e no Linux (CachyOS, Ubuntu); onde diverge, há bloco para cada um. O "porquê" de cada peça está em [`architecture.md`](architecture.md); aqui só o passo a passo.
 
 ## Subir e olhar
 
-```powershell
+```bash
 docker compose -f src/infra/docker-compose.yml up -d
 docker compose -f src/infra/docker-compose.yml ps
 docker compose -f src/infra/docker-compose.yml logs -f outline
@@ -25,7 +25,7 @@ Pré-requisitos no host: `./certs/fullchain.pem` + `./certs/privkey.pem` em `src
 
 ## Importador
 
-```powershell
+```bash
 docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer seed    # carga inicial
 docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer apply   # incremental
 docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verify  # convergência (exit 1 = divergência)
@@ -39,7 +39,7 @@ docker compose -f src/infra/docker-compose.yml up -d importer                   
 
 ## Backup e restore
 
-Backup diário via timer do host (systemd). Instalação (uma vez, no servidor):
+Backup diário via timer do host (systemd, Linux). Instalação (uma vez, no servidor):
 
 ```bash
 sudo cp src/infra/systemd/backup.service src/infra/systemd/backup.timer /etc/systemd/system/
@@ -48,7 +48,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now backup.timer
 systemctl list-timers backup.timer   # confirma o agendamento
 ```
 
-Manual (fora do timer):
+Manual (fora do timer, qualquer SO):
 
 ```bash
 docker compose -f src/infra/docker-compose.yml run --rm backup
@@ -56,7 +56,7 @@ docker compose -f src/infra/docker-compose.yml run --rm backup
 
 Gera em `src/backups/`: `pg-<data>.dump` (Postgres `-Fc`, inclui o estado do importador), `globals-<data>.sql.gz` (roles) e `files-<data>.tgz` (Redis AOF, uploads do Outline, storage do AnythingLLM). O script valida (`pg_restore --list`, `gunzip -t`, `tar -tzf`) e retém os últimos `BACKUP_KEEP_DAILY` (default 7). Sem validação, o backup não conta. Copie para fora do disco (S3/rclone) — mesmo disco não é backup.
 
-Windows (dev local): o equivalente é `src/infra/scripts/backup-postgres.ps1` (só Postgres; produção usa o job `backup` acima).
+Windows (dev local, sem systemd): o equivalente é `src/infra/scripts/backup-postgres.ps1` (só Postgres; produção usa o job `backup` acima).
 
 Restore testado todo mês num banco scratch:
 
@@ -76,16 +76,36 @@ docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verif
 
 ## Atualizar o Outline
 
+Windows:
+
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File src/infra/scripts/update-outline.ps1
 ```
 
+Linux:
+
+```bash
+chmod +x src/infra/scripts/update-outline.sh
+./src/infra/scripts/update-outline.sh            # ou ./src/infra/scripts/update-outline.sh --skip-backup
+```
+
 Faz dump pré-update, `pull` da imagem, recria o serviço e aguarda health. Depois confira se a bolha do chat continua aparecendo — mudança de CSP quebra a injeção em silêncio.
+
+Agendamento diário no Windows (equivale ao timer systemd): `Task Scheduler` → importe `src/infra/scripts/register-outline-auto-update.ps1` (rode com `-Time '03:00'`).
 
 ## Login local sem magic link
 
+Windows:
+
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File src/infra/scripts/open-outline-session.ps1   # sessão de 3 meses
+```
+
+Linux:
+
+```bash
+chmod +x src/infra/scripts/open-outline-session.sh
+./src/infra/scripts/open-outline-session.sh [email]   # imprime a URL (abre sozinho se houver xdg-open)
 ```
 
 ## Chat: limites e erros
@@ -103,7 +123,7 @@ Limites (de `src/infra/.env.example`): corpo 8 KB, 10 perguntas por janela/IP (R
 
 Logs do chat:
 
-```powershell
+```bash
 docker compose -f src/infra/docker-compose.yml up -d chat edge
 docker compose -f src/infra/docker-compose.yml logs --tail 100 chat
 ```

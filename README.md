@@ -18,7 +18,9 @@ Por que este projeto existe: o Outline é um ótimo wiki, mas não responde perg
 
 ## Quickstart
 
-Pré-requisitos: Docker Desktop, Node 24+ (só para `npm run verify`), `.env` preenchido e JSON da service account do GCP. Passo a passo completo (GCP, chaves, boot, `seed`): [`docs/setup.md`](docs/setup.md).
+Pré-requisitos: Docker, Node 24+ (só para `npm run verify`), `.env` preenchido e JSON da service account do GCP. Passo a passo completo (GCP, chaves, boot, `seed`): [`docs/setup.md`](docs/setup.md).
+
+Windows (PowerShell):
 
 ```powershell
 # 1. Configurar (uma vez)
@@ -27,18 +29,34 @@ Copy-Item src/infra/.env.example src/infra/.env   # preencher segredos
 
 # 2. Subir e carregar
 docker compose -f src/infra/docker-compose.yml up -d
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive seed
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer seed
 
 # 3. Abrir
 # Wiki: http://127.0.0.1:8091
 # Chat: http://127.0.0.1:8091/chat/
 ```
 
-Manutenção diária:
+Linux (CachyOS / Ubuntu / qualquer distro com Docker):
 
-```powershell
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive apply   # incremental
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps import-drive verify  # convergência (exit 1 = divergência)
+```bash
+# 1. Configurar (uma vez)
+cp src/infra/.env.example src/infra/.env   # preencher segredos
+# DRIVE_SA_KEY_PATH = caminho do JSON da service account (fora do repo)
+
+# 2. Subir e carregar
+docker compose -f src/infra/docker-compose.yml up -d
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer seed
+
+# 3. Abrir
+# Wiki: http://127.0.0.1:8091
+# Chat: http://127.0.0.1:8091/chat/
+```
+
+Manutenção diária (mesmo comando nos dois SOs):
+
+```bash
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer apply   # incremental
+docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verify  # convergência (exit 1 = divergência)
 ```
 
 Sem HTTPS público o sincronismo roda por poll a cada 15 minutos; o `apply` força na hora.
