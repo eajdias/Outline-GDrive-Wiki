@@ -1,14 +1,14 @@
 # Documentação
 
-Guia de leitura — comece pelo problema que você tem:
+Roteador por perfil — escolha quem você é:
 
-| Quero… | Abra |
-|---|---|
-| Subir do zero (GCP, `.env`, boot, `seed`) | [`setup.md`](setup.md) |
-| Entender como as peças se ligam | [`architecture.md`](architecture.md) |
-| Subir, atualizar, recuperar ou diagnosticar | [`runbook.md`](runbook.md) |
-| Saber quem pode o quê e onde moram os segredos | [`security.md`](security.md) |
-| Saber por que uma decisão foi tomada | [`adr/`](adr/) — 0001 a 0004 |
-| Contribuir com código | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+- **Primeira vez aqui?** → [`setup.md`](setup.md): tutorial do zero ao wiki com chat (~30 min).
+- **Operando a stack?** → [`runbook.md`](runbook.md): how-tos por problema (saúde, sync, chat, backup, credencial).
+- **Entendendo os porquês?** → [`architecture.md`](architecture.md): contexto, containers, importação e pergunta.
+- **Ajustando segredos e rede?** → [`security.md`](security.md): onde moram, superfície, antes de expor.
+- **Por que foi decidido assim?** → [`adr/`](adr/): 0001 Drive-fonte, 0002 AnythingLLM headless, 0003 edge único, 0004 infra Docker.
+- **Contribuindo com código?** → [`CONTRIBUTING.md`](CONTRIBUTING.md): gate, regras, PR.
+
+Referência rápida (espelha o código, não duplica): serviços e env em `src/infra/docker-compose.yml` + `src/infra/.env.example`; contrato do importer em `apps/importer/README.md`; contrato do chat em `apps/chat/README.md`.
 
 Regra de sincronia: mudou comportamento, muda o doc no mesmo commit. Em divergência, o código vence e o doc é corrigido junto.

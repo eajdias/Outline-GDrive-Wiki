@@ -8,7 +8,7 @@ Modelo de ameaça: rede interna confiável. Nada aqui presume exposição públi
 
 ## Superfície de rede
 
-Só o edge publica porta (`127.0.0.1:8091` no local; 22/80/443 com TLS em produção). Postgres, Redis, AnythingLLM, chatui e import-drive ficam na rede interna do compose. O AnythingLLM só fala `/v1` com API key — e a chave nunca vai ao navegador.
+Só o edge publica porta (`127.0.0.1:8091` no local; 22/80/443 com TLS em produção). Postgres, Redis, AnythingLLM, chat e importer ficam na rede interna do compose. O AnythingLLM só fala `/v1` com API key — e a chave nunca vai ao navegador.
 
 ## Quem vê o quê
 

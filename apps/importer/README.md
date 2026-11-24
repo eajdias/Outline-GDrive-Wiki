@@ -16,7 +16,7 @@ Formato `raw-text`: `{ textContent, metadata: { title, url, description, origin:
 - Idempotência por hash; `verify` compara Drive ↔ estado ↔ workspace (exit 1 = divergência).
 - Imagens: rewrite para `/drive-image/<docId>/<objectId>`, `contentUri` via Docs API (`documents.readonly`), cache de 20 min, nada em disco.
 - Segredo fora do git; teste só com mock.
-- Comandos via compose (`import-drive`) ou direto: `node apps/importer/dist/src/cli.js <seed|apply|verify|serve>`.
+- Comandos via compose (`importer`) ou direto: `node apps/importer/dist/src/cli.js <seed|apply|verify|serve>`.
 
 ```powershell
 npm run verify --workspace=@kb/importer

@@ -1,79 +1,103 @@
 # Arquitetura
 
-Três papéis bem separados: o Drive guarda a verdade, o Outline serve leitura, o AnythingLLM responde perguntas. O importador mantém os dois destinos em sincronia; o edge é o único ponto de entrada.
+Por que este sistema existe e como as peças se ligam. Comandos ficam no [`runbook.md`](runbook.md); passo a passo de instalação no [`setup.md`](setup.md).
 
-## Visão geral
+Três papéis bem separados: o Drive guarda a verdade, o Outline serve leitura, o AnythingLLM responde perguntas. O importer mantém os dois destinos em sincronia; o edge é o único ponto de entrada.
+
+## Contexto
+
+Quem usa o sistema e o que está fora dele:
 
 ```mermaid
 flowchart TB
-    Drive["Google Drive<br/>(Google Docs)"] -->|"changes.watch / poll"| IMP["import-drive<br/>seed · apply · verify · serve"]
-    IMP -->|"documents.* (idempotente por hash)"| Outline["Outline<br/>(coleções só-leitura)"]
-    IMP -->|"raw-text + metadata"| RAG["AnythingLLM<br/>workspace kb-drive<br/>Gemini chat + embeddings"]
-    IMP -->|"resolve contentUri<br/>cache 20 min"| DocsAPI["Google Docs API"]
-
-    subgraph Edge["edge :8091 (openresty) — único publicado"]
-        W["/ → wiki (Outline) + snippet do chat"]
-        C["/chat/ → chatui"]
-        H["/hooks/drive → webhook"]
-        I["/drive-image/ → imagens"]
+    Reader["Leitor<br/>(navegador)"]
+    Editor["Editor<br/>(Google Docs)"]
+    Drive["Google Drive<br/>(externo: fonte da verdade)"]
+    Gemini["Gemini API<br/>(externo: chat + embeddings)"]
+    subgraph System["Outline GDrive Wiki"]
+        Edge["edge :8091"]
     end
-
-    Outline --> W
-    RAG -->|"POST /v1/workspace/.../chat"| ChatUI["chatui<br/>answer + sources[]"]
-    ChatUI --> C
-    H --> IMP
-    I --> IMP
+    Editor -->|"cria / edita docs"| Drive
+    Reader -->|"lê wiki, pergunta no chat"| Edge
+    System -->|"lê docs, imagens"| Drive
+    System -->|"chat + embeddings"| Gemini
 ```
 
-| Peça | Papel | Detalhe de acesso |
-|---|---|---|
-| `apps/importer` | Espelha Drive → Outline e Drive → AnythingLLM; serve imagens | Único escrevente no Outline; lê o Drive com `drive.readonly` |
-| `apps/chat` | Pergunta/resposta sobre `/v1/chat`, devolve resposta com fontes | API key só no backend; corta abaixo de `CHAT_MIN_SCORE` |
-| edge (openresty) | Wiki + chat + webhook + imagens num ponto | Ver [`security.md`](security.md); limites em [`runbook.md`](runbook.md) |
-| PostgreSQL / Redis | Persistência do Outline | Rede interna, sem porta publicada |
+O sistema nunca escreve no Drive — só lê (`drive.readonly` + `documents.readonly`). A IA é 100% remota via API; nada de modelo local.
 
-Composição completa dos serviços: `src/infra/README.md`.
+## Containers
+
+O que roda no Compose e como se fala (nomes iguais aos serviços em `src/infra/docker-compose.yml`):
+
+```mermaid
+flowchart TB
+    Edge["edge<br/>(openresty :8091, único publicado)"]
+    Outline["outline :3000<br/>(wiki de leitura)"]
+    Chat["chat :8080<br/>(POST /ask)"]
+    Importer["importer :8787<br/>(seed · apply · verify · serve)"]
+    RAG["anythingllm :3001<br/>(workspace kb-drive, /v1)"]
+    PG["postgres<br/>(Outline + estado do importer)"]
+    Redis["redis<br/>(Outline + rate-limit do chat)"]
+
+    Edge -->|"/ → wiki + snippet"| Outline
+    Edge -->|"/chat/ → UI + /ask"| Chat
+    Edge -->|"POST /hooks/drive"| Importer
+    Edge -->|"GET /drive-image/..."| Importer
+    Chat -->|"POST /v1/workspace/.../chat"| RAG
+    Importer -->|"documents.* (hash)"| Outline
+    Importer -->|"raw-text + metadata"| RAG
+    Chat -.->|"INCR + PEXPIRE (rate-limit)"| Redis
+    Outline & Chat & Importer -.-> PG
+    Outline -.-> Redis
+```
+
+| Peça | Papel | Detalhe |
+|---|---|---|
+| `apps/importer` | Espelha Drive → Outline e Drive → AnythingLLM; serve imagens | Único escrevente no Outline |
+| `apps/chat` | Pergunta/resposta sobre `/v1/chat`, devolve resposta com fontes | API key só no backend; corta abaixo de `CHAT_MIN_SCORE` |
+| edge (openresty) | Wiki + chat + webhook + imagens num ponto | Ver [`security.md`](security.md) |
+| PostgreSQL / Redis | Estado do importer + persistência do Outline; rate-limit do chat | Rede interna, sem porta publicada |
+
+Detalhes de deploy (volumes, limites, overlays): `src/infra/README.md` e `src/infra/docker-compose.yml`.
 
 ## Importação
 
-```mermaid
-flowchart LR
-    A["Doc muda no Drive"] --> B{"HTTPS público<br/>configurado?"}
-    B -->|"sim"| C["changes.watch → POST /hooks/drive<br/>serve agenda apply (debounce)"]
-    B -->|"não"| D["poll a cada 15 min<br/>+ apply manual"]
-    C --> E["apply: lê changes.list incremental<br/>converte HTML → markdown"]
-    D --> E
-    E --> F["escreve Outline + AnythingLLM<br/>hash decide o que mudou"]
-    F --> G["verify compara Drive ↔ estado ↔ workspace"]
-```
-
-Regras de seleção: entram só Google Docs; pastas listadas em `IMPORT_DRIVE_IGNORE_FOLDERS` ficam fora; cada pasta espelha a coleção homônima (`OUTLINE_COLLECTION_MAP` por ID quando configurado), ou cai na coleção default (`OUTLINE_DEFAULT_COLLECTION_ID`). O canal do Drive expira em até 7 dias — o `serve` renova antes e expõe o estado em `GET /healthz`. Comandos em [`runbook.md`](runbook.md); formato `raw-text` e demais detalhes em `apps/importer/README.md`.
-
-## Imagens inline
+Como um doc novo chega aos dois destinos:
 
 ```mermaid
 sequenceDiagram
-    participant Doc as Google Doc
-    participant Imp as importador
-    participant API as Docs API
-    participant Nav as navegador
-    Imp->>Doc: export HTML (imagem vem como data URI)
-    Imp->>Imp: troca por /drive-image/docId/objectId
-    Nav->>Imp: GET /drive-image/... (via edge)
-    Imp->>API: resolve contentUri (documents.readonly)
-    API-->>Nav: binário (cache em memória, 20 min)
+    participant Drive as Google Drive
+    participant Imp as importer
+    participant Out as Outline
+    participant Rag as AnythingLLM
+    Drive->>Imp: changes.watch / poll a cada 15 min
+    Imp->>Drive: changes.list incremental
+    Imp->>Imp: export HTML → markdown + hash
+    alt mudou
+        Imp->>Out: documents.create/update
+        Imp->>Rag: raw-text + update-embeddings
+    end
+    Imp->>Imp: checkpoint pageToken + dead_letters em falha
 ```
 
-Fora do estado → 404; Docs API fora → 502. Pré-requisito no GCP: Drive API + Docs API habilitadas. Diagnóstico em [`runbook.md`](runbook.md).
+Regras de seleção: só Google Docs; pastas em `IMPORT_DRIVE_IGNORE_FOLDERS` ficam fora; cada pasta espelha a coleção homônima (`OUTLINE_COLLECTION_MAP` por ID) ou cai na default (`OUTLINE_DEFAULT_COLLECTION_ID`). Canal do Drive expira em até 7 dias — o `serve` renova antes (`GET /healthz` mostra o estado). Doc com falha vai para `dead_letters` sem travar o resto. Detalhes de contrato em `apps/importer/README.md`.
+
+## Imagens inline
+
+O export HTML traz imagem como data URI; o importador troca por `/drive-image/<docId>/<objectId>` e o `serve` resolve o `contentUri` na Docs API (cache em memória de 20 min, nada em disco). Fora do estado → 404; Docs API fora → 502.
 
 ## Pergunta
 
 ```mermaid
-flowchart LR
-    Nav["bolha no wiki<br/>(?embed=1)"] --> Chat["chatui POST /ask"]
-    Chat --> RAG2["AnythingLLM /v1/chat<br/>workspace kb-drive"]
-    RAG2 --> Chat
-    Chat -->|"textResponse + sources[]<br/>(link Drive/Outline + score)"| Nav2["resposta com citações<br/>ou 'não encontrei'"]
+sequenceDiagram
+    participant Nav as navegador (bolha ?embed=1)
+    participant Chat as chat POST /ask
+    participant Rag as AnythingLLM /v1/chat
+    Nav->>Chat: pergunta
+    Chat->>Chat: rate-limit (Redis)
+    Chat->>Rag: query no workspace kb-drive
+    Rag-->>Chat: textResponse + sources[] (link + score)
+    Chat-->>Nav: resposta com citações ou "não encontrei"
 ```
 
 O widget nativo do AnythingLLM não devolve `sources` — por isso a UI própria é o único caminho (ver ADR 0002). Limites e erros: [`runbook.md`](runbook.md).
@@ -82,6 +106,6 @@ O widget nativo do AnythingLLM não devolve `sources` — por isso a UI própria
 
 - Outline não tem busca vetorial: serve leitura, não pergunta.
 - Sem autenticação por documento na v1 — quem alcança o chat vê o acervo inteiro (ver [`security.md`](security.md)).
-- Produção expõe 22/80/443; Postgres, Redis, AnythingLLM e importador nunca publicam porta.
+- Produção expõe 22/80/443; Postgres, Redis, AnythingLLM e importer nunca publicam porta.
 
 Decisões que explicam o "porquê": [`adr/`](adr/).

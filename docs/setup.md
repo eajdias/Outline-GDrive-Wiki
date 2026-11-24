@@ -1,8 +1,8 @@
 # Setup — do zero ao wiki com chat
 
-Guia para subir o stack num ambiente novo: GCP (Drive/Docs + Gemini), `.env`, boot, carga inicial e checagem. Tempo estimado numa máquina com Docker: ~30 min (a maior parte esperando `pull` e `seed`).
+Tutorial: saia do repo clonado para o wiki carregado e o chat respondendo com fontes. Siga na ordem, sem pular passos. Tempo estimado: ~30 min (a maior parte esperando `pull` e `seed`).
 
-Pré-requisitos: Docker (Docker Desktop no Windows, Docker Engine no Linux), Node 24+, `openssl`, uma conta Google com acesso ao Drive que será espelhado, e uma chave Gemini ([Google AI Studio](https://aistudio.google.com/apikey)).
+Pré-requisitos: Docker (Desktop no Windows, Engine no Linux), Node 24+, `openssl`, uma conta Google com acesso ao Drive, e uma chave Gemini ([AI Studio](https://aistudio.google.com/apikey)).
 
 > Convenção: blocos `powershell` rodam no Windows (PowerShell 7), blocos `bash` no Linux (CachyOS, Ubuntu ou qualquer distro). Comandos `docker compose` são idênticos nos dois.
 
@@ -98,29 +98,17 @@ docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer seed 
 docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verify  # exit 0 = Drive = estado = workspace
 ```
 
-`seed` em acervo grande demora (4–6 HTTPs por doc; `IMPORT_CONCURRENCY=4` paraleliza). Acompanhe com `logs -f importer`. Doc com falha vai para `dead_letters` (tabela no Postgres) sem travar o resto; `verify` aponta o que faltou.
+`seed` em acervo grande demora (`IMPORT_CONCURRENCY=4` paraleliza). Acompanhe com `logs -f importer`. Doc com falha vai para `dead_letters` sem travar o resto.
 
-## 6. Checagem fim a fim
+## 6. Checagem fim a fim (feito = tutorial completo)
 
-1. Wiki: http://127.0.0.1:8091 — documentos do Drive aparecem nas coleções.
-2. Chat: http://127.0.0.1:8091/chat/ — pergunte algo que está nos docs; resposta deve vir **com fontes** (link + score). Sem fontes e com "não encontrei" = `verify` + `apply` + checar `CHAT_MIN_SCORE`.
-3. Sobe o `serve` contínuo: `docker compose -f src/infra/docker-compose.yml up -d importer` (webhook se houver `DRIVE_WEBHOOK_URL`, senão poll).
-4. Login sem magic link (dev):
+1. Wiki: http://127.0.0.1:8091 — documentos do Drive aparecem nas coleções. ✅
+2. Chat: http://127.0.0.1:8091/chat/ — pergunte algo que está nos docs; resposta vem **com fontes** (link + score). ✅
+3. Sobe o `serve` contínuo: `docker compose -f src/infra/docker-compose.yml up -d importer` (webhook se houver `DRIVE_WEBHOOK_URL`, senão poll). ✅
 
-Windows:
+Se algo falhou, veja a tabela abaixo. Se passou tudo: operação diária em [`runbook.md`](runbook.md), porquês em [`architecture.md`](architecture.md).
 
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File src/infra/scripts/open-outline-session.ps1
-```
-
-Linux:
-
-```bash
-chmod +x src/infra/scripts/open-outline-session.sh
-./src/infra/scripts/open-outline-session.sh   # imprime a URL pronta (abre sozinho se houver xdg-open)
-```
-
-## Erros comuns nesta fase
+## Erros comuns neste tutorial
 
 | Sintoma | Causa provável |
 |---|---|
@@ -130,5 +118,3 @@ chmod +x src/infra/scripts/open-outline-session.sh
 | Chat sempre "não encontrei" | workspace vazio (`seed` não rodou) ou `CHAT_MIN_SCORE` alto demais; confira `verify` |
 | `verify` exit 1 logo no início | normal antes do primeiro `seed` completo — rode `seed`, depois `verify` |
 | AnythingLLM 429/503 | quota Gemini; backoff e tente de novo; em produção suba `IMPORT_CONCURRENCY` com cautela |
-
-Próximo passo: [`runbook.md`](runbook.md) (operação diária, backup, timers) e [`architecture.md`](architecture.md) (como as peças se ligam).
