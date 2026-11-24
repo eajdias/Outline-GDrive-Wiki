@@ -7,7 +7,7 @@
 set -eu
 
 INFRA_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-REPO_ROOT="$(dirname -- "$INFRA_DIR")"
+REPO_ROOT="$(git -C "$INFRA_DIR" rev-parse --show-toplevel)"
 DIST_DIR="$REPO_ROOT/dist"
 
 VERSION="${1:-}"
