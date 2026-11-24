@@ -54,7 +54,7 @@ Manual (fora do timer):
 docker compose -f src/infra/docker-compose.yml run --rm backup
 ```
 
-Gera em `src/backups/`: `pg-<data>.dump` (Postgres `-Fc`), `globals-<data>.sql.gz` (roles) e `files-<data>.tgz` (Redis AOF, uploads do Outline, storage do AnythingLLM, `imports.db`). O script valida (`pg_restore --list`, `gunzip -t`, `tar -tzf`) e retém os últimos `BACKUP_KEEP_DAILY` (default 7). Sem validação, o backup não conta. Copie para fora do disco (S3/rclone) — mesmo disco não é backup.
+Gera em `src/backups/`: `pg-<data>.dump` (Postgres `-Fc`, inclui o estado do importador), `globals-<data>.sql.gz` (roles) e `files-<data>.tgz` (Redis AOF, uploads do Outline, storage do AnythingLLM). O script valida (`pg_restore --list`, `gunzip -t`, `tar -tzf`) e retém os últimos `BACKUP_KEEP_DAILY` (default 7). Sem validação, o backup não conta. Copie para fora do disco (S3/rclone) — mesmo disco não é backup.
 
 Windows (dev local): o equivalente é `src/infra/scripts/backup-postgres.ps1` (só Postgres; produção usa o job `backup` acima).
 

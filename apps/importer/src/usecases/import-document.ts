@@ -30,7 +30,7 @@ export async function importDocument(
   doc: DriveDoc,
   collectionId: string,
 ): Promise<ImportResult> {
-  const existing = deps.state.get(doc.id);
+  const existing = await deps.state.get(doc.id);
   let markdown = normalizeHtml(await deps.drive.exportHtml(doc.id));
 
   if (markdown.includes("![")) {
@@ -46,7 +46,7 @@ export async function importDocument(
 
   if (existing && existing.sha256 === hash && existing.outlineId && existing.ragPath) {
     if (existing.modifiedTime !== doc.modifiedTime || existing.title !== doc.name) {
-      deps.state.upsert({
+      await deps.state.upsert({
         ...existing,
         modifiedTime: doc.modifiedTime,
         title: doc.name,
@@ -63,7 +63,7 @@ export async function importDocument(
     outlineId = await deps.outline.create({ title: doc.name, markdown, collectionId });
   }
 
-  deps.state.upsert({
+  await deps.state.upsert({
     driveFileId: doc.id,
     outlineId,
     ragPath: null,
@@ -108,7 +108,7 @@ export async function importDocument(
     await deps.rag.removeDocuments([previous]);
   }
 
-  deps.state.upsert({
+  await deps.state.upsert({
     driveFileId: doc.id,
     outlineId,
     ragPath: location,
@@ -130,7 +130,7 @@ export async function importDocument(
 }
 
 export async function removeImportedDocument(deps: ImportDeps, driveFileId: string): Promise<boolean> {
-  const record = deps.state.get(driveFileId);
+  const record = await deps.state.get(driveFileId);
   if (!record) return false;
 
   if (record.outlineId) {
@@ -140,7 +140,7 @@ export async function removeImportedDocument(deps: ImportDeps, driveFileId: stri
     await deps.rag.updateEmbeddings([], [record.ragPath]);
     await deps.rag.removeDocuments([record.ragPath]);
   }
-  deps.state.remove(driveFileId);
+  await deps.state.remove(driveFileId);
   deps.logger.info("document removed from destinations", {
     driveFileId,
     title: record.title,

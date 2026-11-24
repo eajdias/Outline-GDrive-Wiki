@@ -8,7 +8,9 @@ const server = createChatServer(runtime);
 
 function shutdown(signal: string): void {
   runtime.logger.info("shutting down", { signal });
-  server.close(() => process.exit(0));
+  server.close(() => {
+    void runtime.close().finally(() => process.exit(0));
+  });
   setTimeout(() => process.exit(1), 10_000).unref();
 }
 

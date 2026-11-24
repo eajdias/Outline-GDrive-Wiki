@@ -14,7 +14,7 @@ export interface DivergenceReport {
 
 export async function verifyConvergence(deps: ImportDeps, rootFolderId: string): Promise<DivergenceReport> {
   const docs = await deps.drive.listDocs(rootFolderId);
-  const records = deps.state.all();
+  const records = await deps.state.all();
   const workspace = await deps.rag.workspaceDocuments();
 
   const docIds = new Set(docs.map((doc) => doc.id));
@@ -27,7 +27,7 @@ export async function verifyConvergence(deps: ImportDeps, rootFolderId: string):
   const stale: string[] = [];
 
   for (const doc of docs) {
-    const record = deps.state.get(doc.id);
+    const record = await deps.state.get(doc.id);
     if (!record) {
       missing.push(doc.name);
       continue;

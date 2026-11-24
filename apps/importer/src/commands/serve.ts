@@ -16,8 +16,8 @@ export interface RunningServe {
 export async function runServe(runtime: Runtime): Promise<RunningServe> {
   const { config, drive, logger, state } = runtime;
   const status: WebhookStatus = {
-    channelId: state.getMeta(CHANNEL_ID_KEY),
-    expiration: state.getMeta(CHANNEL_EXPIRATION_KEY),
+    channelId: await state.getMeta(CHANNEL_ID_KEY),
+    expiration: await state.getMeta(CHANNEL_EXPIRATION_KEY),
     lastEventAt: null,
     lastApplyAt: null,
     lastApplyReport: null,
@@ -93,8 +93,8 @@ export async function runServe(runtime: Runtime): Promise<RunningServe> {
       const result = await drive.watch(url, config.drive.webhookToken, randomUUID());
       status.channelId = result.id;
       status.expiration = result.expiration;
-      state.setMeta(CHANNEL_ID_KEY, result.id);
-      if (result.expiration) state.setMeta(CHANNEL_EXPIRATION_KEY, result.expiration);
+      await state.setMeta(CHANNEL_ID_KEY, result.id);
+      if (result.expiration) await state.setMeta(CHANNEL_EXPIRATION_KEY, result.expiration);
       logger.info("drive watch channel registered", { channelId: result.id, expiration: result.expiration });
     } catch (error) {
       logger.error("failed to register drive watch channel", { error });
@@ -109,7 +109,7 @@ export async function runServe(runtime: Runtime): Promise<RunningServe> {
     onEvent,
     status: () => status,
     onImage: (request) => runtime.docs.getImage(request.docId, request.objectId),
-    isKnownDoc: (docId) => state.get(docId) !== null,
+    isKnownDoc: async (docId) => (await state.get(docId)) !== null,
   });
   await server.listen();
   logger.info("import-drive webhook listening", { port: config.drive.port });

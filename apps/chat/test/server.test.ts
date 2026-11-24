@@ -6,6 +6,7 @@ import type { Config } from "../src/infra/config.js";
 import type { Runtime } from "../src/infra/context.js";
 import type { Logger } from "@repo/logger";
 import { createChatServer } from "../src/infra/server.js";
+import { MemoryRateLimiter } from "../src/infra/rate-limit.js";
 import type { ChatAnswer, ChatClient } from "../src/ports/chat.js";
 
 const silentLogger: Logger = {
@@ -33,6 +34,9 @@ function config(overrides: Partial<Config["server"]> = {}): Config {
       workspaces: ["kb-wiki", "kb-drive"],
       timeoutMs: 5000,
       minScore: 0.65,
+    },
+    redis: {
+      url: null,
     },
     logLevel: "error",
   };
@@ -62,7 +66,14 @@ class StubChat implements ChatClient {
 const servers: ReturnType<typeof createChatServer>[] = [];
 
 async function start(chat: ChatClient, serverConfig: Partial<Config["server"]> = {}): Promise<string> {
-  const runtime: Runtime = { config: config(serverConfig), logger: silentLogger, chat };
+  const cfg = config(serverConfig);
+  const runtime: Runtime = {
+    config: cfg,
+    logger: silentLogger,
+    chat,
+    limiter: new MemoryRateLimiter(cfg.server.rateLimitMax, cfg.server.rateLimitWindowMs),
+    close: async () => {},
+  };
   const server = createChatServer(runtime);
   servers.push(server);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

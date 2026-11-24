@@ -4,7 +4,6 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import path from "node:path";
 import { AskUpstreamError, AskValidationError, askQuestion } from "../usecases/ask.js";
 import type { Runtime } from "./context.js";
-import { RateLimiter } from "./rate-limit.js";
 import { securityHeaders } from "./security-headers.js";
 import { upstreamResponse } from "./upstream-errors.js";
 
@@ -87,9 +86,8 @@ function questionFrom(payload: unknown): string | null {
 }
 
 export function createChatServer(runtime: Runtime): Server {
-  const { config, logger, chat } = runtime;
+  const { config, logger, chat, limiter } = runtime;
   const files = staticFiles();
-  const limiter = new RateLimiter(config.server.rateLimitMax, config.server.rateLimitWindowMs);
 
   const serveStatic = async (entry: StaticFile, response: ServerResponse): Promise<void> => {
     try {
@@ -106,7 +104,7 @@ export function createChatServer(runtime: Runtime): Server {
     const requestId = randomUUID();
     const startedAt = Date.now();
     const ip = clientIp(request);
-    const decision = limiter.take(ip);
+    const decision = await limiter.take(ip);
 
     if (!decision.allowed) {
       const retryAfter = decision.retryAfterSeconds;

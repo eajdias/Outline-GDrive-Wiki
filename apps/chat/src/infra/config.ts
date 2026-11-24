@@ -1,4 +1,4 @@
-import { flag, optional, parseLogLevel, positiveInt, required, score, stripTrailingSlash, type LogLevel } from "@repo/env";
+import { flag, optional, optionalOrNull, parseLogLevel, positiveInt, required, score, stripTrailingSlash, type LogLevel } from "@repo/env";
 
 export interface Config {
   server: {
@@ -9,6 +9,9 @@ export interface Config {
     rateLimitWindowMs: number;
     maxQuestionChars: number;
     allowEmbed: boolean;
+  };
+  redis: {
+    url: string | null;
   };
   anythingllm: {
     baseUrl: string;
@@ -56,6 +59,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       workspaces: parseWorkspaces(env),
       timeoutMs: positiveInt(env, "CHAT_TIMEOUT_MS", 60_000),
       minScore: score(env, "CHAT_MIN_SCORE", 0.65),
+    },
+    redis: {
+      url: optionalOrNull(env, "REDIS_URL"),
     },
     logLevel: parseLogLevel(env.LOG_LEVEL),
   };

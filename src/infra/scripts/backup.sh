@@ -17,8 +17,8 @@ echo "== globals =="
 pg_dumpall -h postgres -U "$POSTGRES_USER" --globals-only | gzip > "$DEST/globals-$STAMP.sql.gz"
 
 echo "== state files =="
-tar -czf "$DEST/files-$STAMP.tgz" /redis/appendonly.aof /wiki-data /rag-data /importer-data 2>/dev/null || \
-  tar -czf "$DEST/files-$STAMP.tgz" /wiki-data /rag-data /importer-data 2>/dev/null || true
+tar -czf "$DEST/files-$STAMP.tgz" /redis/appendonly.aof /wiki-data /rag-data 2>/dev/null || \
+  tar -czf "$DEST/files-$STAMP.tgz" /wiki-data /rag-data 2>/dev/null || true
 
 echo "== validate =="
 ls -la "$DEST/pg-$STAMP.dump" "$DEST/globals-$STAMP.sql.gz" "$DEST/files-$STAMP.tgz"

@@ -1,6 +1,7 @@
 import type { CollectionResolver } from "./collections.js";
 import { importDocument, removeImportedDocument, type ImportDeps } from "./import-document.js";
 import { ensurePageToken, PAGE_TOKEN_KEY } from "./page-token.js";
+import type { DriveDoc } from "../ports/drive.js";
 
 export interface ApplyReport {
   changes: number;
@@ -11,14 +12,26 @@ export interface ApplyReport {
   failed: number;
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const workers = new Array(Math.max(1, Math.min(limit, items.length))).fill(null).map(async () => {
+    for (;;) {
+      const index = next;
+      next += 1;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index] as T);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 export async function incrementalSync(
   deps: ImportDeps,
   resolver: CollectionResolver,
   delayMs: number,
+  concurrency = 4,
 ): Promise<ApplyReport> {
   await deps.rag.ensureWorkspace();
 
@@ -33,49 +46,62 @@ export async function incrementalSync(
     failed: 0,
   };
 
-  for (const driveFileId of changes.removedIds) {
+  const removals = await mapLimit(changes.removedIds, concurrency, async (driveFileId) => {
     try {
-      if (await removeImportedDocument(deps, driveFileId)) report.removed += 1;
+      return (await removeImportedDocument(deps, driveFileId)) ? "removed" : "missing";
     } catch (error) {
-      report.failed += 1;
       deps.logger.error("failed to remove document", { driveFileId, error });
+      await deps.state.deadLetter({ driveFileId, reason: "remove-failed", attempts: 1 }, String(error));
+      return "failed";
     }
+  });
+  for (const outcome of removals) {
+    if (outcome === "removed") report.removed += 1;
+    else if (outcome === "failed") report.failed += 1;
   }
 
-  for (const doc of changes.docs) {
+  const outcomes = await mapLimit(changes.docs, concurrency, async (doc: DriveDoc) => {
     let collectionId: string | null;
     try {
       collectionId = await resolver.resolve(doc.folderId, doc.folderPath);
     } catch (error) {
-      report.failed += 1;
       deps.logger.error("cannot resolve Outline collection", { title: doc.name, error });
-      continue;
+      await deps.state.deadLetter({ driveFileId: doc.id, reason: "collection-unresolved", attempts: 1 });
+      return "failed";
     }
 
     if (!collectionId) {
       try {
-        if (await removeImportedDocument(deps, doc.id)) report.removed += 1;
-        else report.ignored += 1;
+        if (await removeImportedDocument(deps, doc.id)) return "removed";
+        return "ignored";
       } catch (error) {
-        report.failed += 1;
         deps.logger.error("failed to remove document after folder rule", { title: doc.name, error });
+        await deps.state.deadLetter({ driveFileId: doc.id, reason: "remove-after-rule-failed", attempts: 1 });
+        return "failed";
       }
-      continue;
     }
 
     try {
       const result = await importDocument(deps, doc, collectionId);
-      if (result.outcome === "indexed") report.indexed += 1;
-      else report.unchanged += 1;
+      return result.outcome;
     } catch (error) {
-      report.failed += 1;
       deps.logger.error("failed to import document", { title: doc.name, driveFileId: doc.id, error });
+      await deps.state.deadLetter({ driveFileId: doc.id, reason: "import-failed", attempts: 1 }, { title: doc.name });
+      return "failed";
     }
+  });
 
-    if (delayMs > 0) await wait(delayMs);
+  for (const outcome of outcomes) {
+    if (outcome === "indexed") report.indexed += 1;
+    else if (outcome === "unchanged") report.unchanged += 1;
+    else if (outcome === "removed") report.removed += 1;
+    else if (outcome === "ignored") report.ignored += 1;
+    else report.failed += 1;
   }
 
-  deps.state.setMeta(PAGE_TOKEN_KEY, changes.nextToken);
-  deps.state.markRun("apply", report);
+  if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+  await deps.state.setMeta(PAGE_TOKEN_KEY, changes.nextToken);
+  await deps.state.markRun("apply", report);
   return report;
 }

@@ -17,11 +17,13 @@
   "dependencies": {
     "@repo/env": "*",
     "@repo/http": "*",
-    "@repo/logger": "*"
+    "@repo/logger": "*",
+    "pg": "^8.13.0"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",
     "@types/node": "^24.9.2",
+    "@types/pg": "^8.11.0",
     "typescript": "^5.9.3"
   }
 }

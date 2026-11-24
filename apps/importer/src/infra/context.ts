@@ -6,8 +6,9 @@ import { DocsClient } from "./docs-client.js";
 import { DriveClient } from "./drive-client.js";
 import { GoogleTokenProvider } from "./drive-auth.js";
 import { OutlineClient } from "./outline-client.js";
+import { createPgClient } from "./pg-client.js";
+import { createPostgresStateStore } from "./pg-state-store.js";
 import { RagClient } from "./rag-client.js";
-import { SqliteStateStore } from "./state-store.js";
 
 export interface Runtime extends ImportDeps {
   config: Config;
@@ -16,8 +17,9 @@ export interface Runtime extends ImportDeps {
   close(): void;
 }
 
-export function createRuntime(config: Config): Runtime {
+export async function createRuntime(config: Config): Promise<Runtime> {
   const logger = createLogger("importer", config.logLevel);
+  const pg = await createPgClient(config.state.databaseUrl);
   const tokens = new GoogleTokenProvider(config.drive.saKeyPath);
   const drive = new DriveClient(
     tokens,
@@ -27,7 +29,7 @@ export function createRuntime(config: Config): Runtime {
   const docs = new DocsClient(tokens, logger);
   const outline = new OutlineClient(config.outline.apiUrl, config.outline.apiKey, logger);
   const rag = new RagClient(config.rag.baseUrl, config.rag.apiKey, config.rag.workspace, logger);
-  const state = new SqliteStateStore(config.state.dbPath);
+  const state = createPostgresStateStore(pg);
   const resolver = createCollectionResolver(outline, {
     collectionMap: config.outline.collectionMap,
     defaultCollectionId: config.outline.defaultCollectionId,

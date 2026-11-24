@@ -22,6 +22,7 @@ export interface Config {
     documentDelayMs: number;
     pollIntervalMs: number;
     ignoreFolders: string[];
+    concurrency: number;
   };
   outline: {
     apiUrl: string;
@@ -36,7 +37,7 @@ export interface Config {
     workspace: string;
   };
   state: {
-    dbPath: string;
+    databaseUrl: string;
   };
   logLevel: LogLevel;
 }
@@ -79,6 +80,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       documentDelayMs: nonNegativeInt(env, "IMPORT_DOCUMENT_DELAY_MS", 0),
       pollIntervalMs: nonNegativeInt(env, "DRIVE_POLL_INTERVAL_MS", 900_000),
       ignoreFolders: parseList(env.IMPORT_DRIVE_IGNORE_FOLDERS, "drafts"),
+      concurrency: positiveInt(env, "IMPORT_CONCURRENCY", 4),
     },
     outline: {
       apiUrl: outlineApiUrl,
@@ -93,7 +95,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       workspace: optional(env, "IMPORT_DRIVE_RAG_WORKSPACE", "kb-drive"),
     },
     state: {
-      dbPath: optional(env, "IMPORTS_DB_PATH", "imports.db"),
+      databaseUrl: required(env, "STATE_DATABASE_URL"),
     },
     logLevel: parseLogLevel(env.LOG_LEVEL),
   };

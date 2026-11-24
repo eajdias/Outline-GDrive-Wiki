@@ -9,13 +9,20 @@ export interface ImportRecord {
   folderId: string;
 }
 
+export interface DeadLetter {
+  driveFileId: string;
+  reason: string;
+  attempts: number;
+}
+
 export interface ImportState {
-  get(driveFileId: string): ImportRecord | null;
-  all(): ImportRecord[];
-  upsert(record: ImportRecord): void;
-  remove(driveFileId: string): void;
-  getMeta(key: string): string | null;
-  setMeta(key: string, value: string): void;
-  markRun(kind: string, report: unknown): void;
-  close(): void;
+  get(driveFileId: string): Promise<ImportRecord | null>;
+  all(): Promise<ImportRecord[]>;
+  upsert(record: ImportRecord): Promise<void>;
+  remove(driveFileId: string): Promise<void>;
+  getMeta(key: string): Promise<string | null>;
+  setMeta(key: string, value: string): Promise<void>;
+  markRun(kind: string, report: unknown): Promise<void>;
+  deadLetter(entry: DeadLetter, payload?: unknown): Promise<void>;
+  close(): Promise<void> | void;
 }

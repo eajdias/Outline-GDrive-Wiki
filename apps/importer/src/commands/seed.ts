@@ -7,5 +7,6 @@ export function runSeed(runtime: Runtime): Promise<SeedReport> {
     runtime.resolver,
     runtime.config.drive.rootFolderId,
     runtime.config.drive.documentDelayMs,
+    runtime.config.drive.concurrency,
   );
 }

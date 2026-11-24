@@ -26,7 +26,7 @@ export interface WebhookServerOptions {
   onEvent: () => void;
   status: () => WebhookStatus;
   onImage?: (request: ImageRequest) => Promise<ImageResult>;
-  isKnownDoc?: (docId: string) => boolean;
+  isKnownDoc?: (docId: string) => boolean | Promise<boolean>;
 }
 
 export interface WebhookServer {
@@ -66,20 +66,26 @@ function handle(request: IncomingMessage, response: ServerResponse, options: Web
     const docId = decodeURIComponent(imageMatch[1] ?? "");
     const objectId = decodeURIComponent(imageMatch[2] ?? "");
 
-    if (!options.onImage || (options.isKnownDoc && !options.isKnownDoc(docId))) {
+    if (!options.onImage) {
       respond(response, 404, { error: "image not found" });
       return;
     }
 
-    void options
-      .onImage({ docId, objectId })
-      .then((image) => {
-        if (!response.headersSent) respondBytes(response, image);
-      })
-      .catch((error: unknown) => {
-        options.logger.warn("drive image proxy failed", { docId, objectId, error });
-        if (!response.headersSent) respond(response, 502, { error: "image unavailable" });
-      });
+    void Promise.resolve(options.isKnownDoc?.(docId) ?? true).then((known) => {
+      if (!known) {
+        if (!response.headersSent) respond(response, 404, { error: "image not found" });
+        return;
+      }
+      void options
+        .onImage?.({ docId, objectId })
+        .then((image) => {
+          if (!response.headersSent) respondBytes(response, image);
+        })
+        .catch((error: unknown) => {
+          options.logger.warn("drive image proxy failed", { docId, objectId, error });
+          if (!response.headersSent) respond(response, 502, { error: "image unavailable" });
+        });
+    });
     return;
   }
 

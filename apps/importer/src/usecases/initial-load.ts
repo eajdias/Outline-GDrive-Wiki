@@ -1,6 +1,7 @@
 import type { CollectionResolver } from "./collections.js";
 import { importDocument, type ImportDeps } from "./import-document.js";
 import { ensurePageToken } from "./page-token.js";
+import type { DriveDoc } from "../ports/drive.js";
 
 export interface SeedReport {
   driveDocs: number;
@@ -10,8 +11,19 @@ export interface SeedReport {
   failed: number;
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const workers = new Array(Math.max(1, Math.min(limit, items.length))).fill(null).map(async () => {
+    for (;;) {
+      const index = next;
+      next += 1;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index] as T);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 export async function initialLoad(
@@ -19,6 +31,7 @@ export async function initialLoad(
   resolver: CollectionResolver,
   rootFolderId: string,
   delayMs: number,
+  concurrency = 4,
 ): Promise<SeedReport> {
   await deps.rag.ensureWorkspace();
   await ensurePageToken(deps);
@@ -32,34 +45,40 @@ export async function initialLoad(
     failed: 0,
   };
 
-  for (const doc of docs) {
+  const outcomes = await mapLimit(docs, concurrency, async (doc: DriveDoc) => {
     let collectionId: string | null;
     try {
       collectionId = await resolver.resolve(doc.folderId, doc.folderPath);
     } catch (error) {
-      report.failed += 1;
       deps.logger.error("cannot resolve Outline collection", { title: doc.name, error });
-      continue;
+      await deps.state.deadLetter({ driveFileId: doc.id, reason: "collection-unresolved", attempts: 1 });
+      return "failed";
     }
 
     if (!collectionId) {
-      report.ignored += 1;
       deps.logger.info("document ignored by folder rule", { title: doc.name, folderPath: doc.folderPath });
-      continue;
+      return "ignored";
     }
 
     try {
       const result = await importDocument(deps, doc, collectionId);
-      if (result.outcome === "indexed") report.indexed += 1;
-      else report.unchanged += 1;
+      return result.outcome;
     } catch (error) {
-      report.failed += 1;
       deps.logger.error("failed to import document", { title: doc.name, driveFileId: doc.id, error });
+      await deps.state.deadLetter({ driveFileId: doc.id, reason: "import-failed", attempts: 1 }, { title: doc.name });
+      return "failed";
     }
+  });
 
-    if (delayMs > 0) await wait(delayMs);
+  for (const outcome of outcomes) {
+    if (outcome === "indexed") report.indexed += 1;
+    else if (outcome === "unchanged") report.unchanged += 1;
+    else if (outcome === "ignored") report.ignored += 1;
+    else report.failed += 1;
   }
 
-  deps.state.markRun("seed", report);
+  if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+  await deps.state.markRun("seed", report);
   return report;
 }

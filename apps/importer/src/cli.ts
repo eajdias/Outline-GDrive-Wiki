@@ -38,7 +38,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const runtime = createRuntime(loadConfig());
+  const runtime = await createRuntime(loadConfig());
 
   try {
     if (command === "serve") {
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
     runtime.logger.info("verify finished", { ...result.report });
     process.exitCode = result.exitCode;
   } finally {
-    runtime.close();
+    await runtime.close();
   }
 }
 

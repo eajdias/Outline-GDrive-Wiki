@@ -196,14 +196,15 @@ services:
       - .env
     environment:
       REDIS_URL: redis://redis:6379
-      IMPORTS_DB_PATH: /data/imports.db
+      STATE_DATABASE_URL: postgres://${POSTGRES_USER:-outline}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD ausente no src/infra/.env}@postgres:5432/${POSTGRES_DB:-outline}
       DRIVE_SA_KEY_PATH: /run/secrets/drive-sa.json
       OUTLINE_API_URL: http://outline:3000
       ANYTHINGLLM_API_URL: http://anythingllm:3001
     volumes:
-      - importdata:/data
       - ${DRIVE_SA_KEY_PATH:-./secrets/drive-sa.json}:/run/secrets/drive-sa.json:ro
     depends_on:
+      postgres:
+        condition: service_healthy
       outline:
         condition: service_healthy
       anythingllm:
@@ -270,7 +271,6 @@ services:
       - redisdata:/redis:ro
       - outlinedata:/wiki-data:ro
       - anythingllmdata:/rag-data:ro
-      - importdata:/importer-data:ro
       - ../backups:/backups
       - ./scripts/backup.sh:/backup.sh:ro
     networks:
@@ -298,4 +298,3 @@ volumes:
   redisdata:
   outlinedata:
   anythingllmdata:
-  importdata:

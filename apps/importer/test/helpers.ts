@@ -41,17 +41,18 @@ export function makeHarness(): Harness {
   let counter = 0;
 
   const state: ImportState = {
-    get: (driveFileId) => records.get(driveFileId) ?? null,
-    all: () => [...records.values()],
-    upsert: (record) => {
+    get: async (driveFileId) => records.get(driveFileId) ?? null,
+    all: async () => [...records.values()],
+    upsert: async (record) => {
       records.set(record.driveFileId, record);
     },
-    remove: (driveFileId) => {
+    remove: async (driveFileId) => {
       records.delete(driveFileId);
     },
-    getMeta: () => null,
-    setMeta: () => {},
-    markRun: () => {},
+    getMeta: async () => null,
+    setMeta: async () => {},
+    markRun: async () => {},
+    deadLetter: async () => {},
     close: () => {},
   };
 
