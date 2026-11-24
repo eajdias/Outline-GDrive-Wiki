@@ -2,6 +2,29 @@
 
 How-tos para quem já subiu o stack ([`setup.md`](setup.md)). Cada seção resolve um problema; comandos idênticos no Windows (PowerShell 7) e no Linux, exceto onde indicado.
 
+## Deploy (subir/atualizar o stack)
+
+Um comando, idempotente — re-rodar é seguro (valida, backup, sobe com health-gate):
+
+Windows:
+
+```powershell
+src/infra/deploy.ps1                    # interativo (pergunta antes do backup)
+src/infra/deploy.ps1 -Yes -NoBackup    # CI / sem backup
+```
+
+Linux:
+
+```bash
+chmod +x src/infra/deploy.sh
+./src/infra/deploy.sh                  # interativo (pergunta antes do backup)
+./src/infra/deploy.sh --yes --no-backup  # CI / sem backup
+```
+
+Fases: preflight → env-validate (falha rápido sem expor valores) → backup → pull/build → `up -d --wait` (health-gate 300s) → resumo com URLs. Produção: `DEPLOY_ENV=prod ./src/infra/deploy.sh` (aplica o overlay sem portas diretas + TLS). Flags: `--env-file PATH`, `--timeout SECS`, `--pull`/`--no-pull`.
+
+Em falha no health-gate, os containers ficam de pé para diagnóstico (`ps` + últimos 100 logs impressos) — nunca apague volumes (`down -v`) como "correção".
+
 ## Ver saúde da stack
 
 ```bash

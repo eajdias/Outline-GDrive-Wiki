@@ -106,6 +106,8 @@ docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verif
 2. Chat: http://127.0.0.1:8091/chat/ — pergunte algo que está nos docs; resposta vem **com fontes** (link + score). ✅
 3. Sobe o `serve` contínuo: `docker compose -f src/infra/docker-compose.yml up -d importer` (webhook se houver `DRIVE_WEBHOOK_URL`, senão poll). ✅
 
+Atualizações futuras usam o deploy idempotente (valida + backup + health-gate): [`runbook.md`](runbook.md#deploy-subiratualizar-o-stack).
+
 Se algo falhou, veja a tabela abaixo. Se passou tudo: operação diária em [`runbook.md`](runbook.md), porquês em [`architecture.md`](architecture.md).
 
 ## Erros comuns neste tutorial
