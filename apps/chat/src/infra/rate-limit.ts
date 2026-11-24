@@ -34,6 +34,8 @@ export class MemoryRateLimiter implements RateLimiter {
   ) {}
 
   async take(key: string, now = Date.now()): Promise<RateLimitDecision> {
+    this.forgetExpired(now);
+
     const windowStart = now - this.windowMs;
     const recent = (this.windows.get(key) ?? []).filter((timestamp) => timestamp > windowStart);
 
@@ -47,6 +49,17 @@ export class MemoryRateLimiter implements RateLimiter {
     recent.push(now);
     this.windows.set(key, recent);
     return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  size(): number {
+    return this.windows.size;
+  }
+
+  private forgetExpired(now: number): void {
+    const windowStart = now - this.windowMs;
+    for (const [key, timestamps] of this.windows) {
+      if (timestamps.every((timestamp) => timestamp <= windowStart)) this.windows.delete(key);
+    }
   }
 }
 

@@ -36,7 +36,12 @@ export async function runServe(runtime: Runtime): Promise<RunningServe> {
     }
     applying = true;
     try {
-      const report = await incrementalSync(runtime, runtime.resolver, config.drive.documentDelayMs);
+      const report = await incrementalSync(
+        runtime,
+        runtime.resolver,
+        config.drive.documentDelayMs,
+        config.drive.concurrency,
+      );
       status.lastApplyAt = new Date().toISOString();
       status.lastApplyReport = report;
       logger.info("apply finished", { ...report });

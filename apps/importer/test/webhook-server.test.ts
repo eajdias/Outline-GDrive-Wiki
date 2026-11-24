@@ -44,6 +44,47 @@ test("proxies images for known documents and rejects unknown ones", async () => 
   }
 });
 
+test("rejects every notification when no token is configured", async () => {
+  let events = 0;
+  const status: WebhookStatus = {
+    channelId: null,
+    expiration: null,
+    lastEventAt: null,
+    lastApplyAt: null,
+    lastApplyReport: null,
+  };
+
+  const server = createWebhookServer({
+    port: 0,
+    expectedToken: null,
+    logger,
+    onEvent: () => {
+      events += 1;
+    },
+    status: () => status,
+  });
+
+  await server.listen();
+  const base = `http://127.0.0.1:${server.port()}`;
+
+  try {
+    const withoutToken = await fetch(`${base}/hooks/drive`, {
+      method: "POST",
+      headers: { "x-goog-resource-state": "change" },
+    });
+    assert.equal(withoutToken.status, 401);
+
+    const anyToken = await fetch(`${base}/hooks/drive`, {
+      method: "POST",
+      headers: { "x-goog-resource-state": "change", "x-goog-channel-token": "guess" },
+    });
+    assert.equal(anyToken.status, 401);
+    assert.equal(events, 0);
+  } finally {
+    await server.close();
+  }
+});
+
 test("accepts change events, rejects bad token and exposes health", async () => {
   let events = 0;
   const status: WebhookStatus = {

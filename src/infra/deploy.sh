@@ -53,13 +53,21 @@ esac
 
 log "phase 2/6 env-validate (fail fast, sem expor valores)"
 missing=""
-for var in POSTGRES_PASSWORD SECRET_KEY UTILS_SECRET GEMINI_API_KEY ANYTHINGLLM_JWT_SECRET ANYTHINGLLM_AUTH_TOKEN ANYTHINGLLM_API_KEY OUTLINE_API_KEY DRIVE_SA_KEY_PATH DRIVE_ROOT_FOLDER_ID; do
+for var in POSTGRES_PASSWORD SECRET_KEY UTILS_SECRET ANYTHINGLLM_JWT_SECRET ANYTHINGLLM_AUTH_TOKEN ANYTHINGLLM_API_KEY OUTLINE_API_KEY DRIVE_SA_KEY_PATH DRIVE_ROOT_FOLDER_ID; do
   val="$(grep -E "^${var}=" "$ENV_FILE" | cut -d= -f2- | tr -d '[:space:]' || true)"
   [ -n "$val" ] || missing="$missing $var"
 done
 [ -z "$missing" ] || die "variáveis vazias no env:$missing"
+gemini_keys="$(grep -E '^GEMINI_API_KEYS=' "$ENV_FILE" | cut -d= -f2- | tr -d '[:space:]' || true)"
+gemini_key="$(grep -E '^GEMINI_API_KEY=' "$ENV_FILE" | cut -d= -f2- | tr -d '[:space:]' || true)"
+[ -n "$gemini_keys$gemini_key" ] || die "defina GEMINI_API_KEYS (uma ou mais chaves) ou GEMINI_API_KEY"
 sa_path="$(grep -E '^DRIVE_SA_KEY_PATH=' "$ENV_FILE" | cut -d= -f2- | tr -d '[:space:]')"
 [ -f "$sa_path" ] || die "DRIVE_SA_KEY_PATH não existe: $sa_path"
+if [ -n "$COMPOSE_OVERLAY" ]; then
+  for cert in certs/fullchain.pem certs/privkey.pem; do
+    [ -s "$INFRA_DIR/$cert" ] || die "TLS de produção exige $INFRA_DIR/$cert (a porta 443 falharia no boot do edge)"
+  done
+fi
 compose config -q || die "compose config inválido"
 
 log "phase 3/6 backup (a menos que --no-backup)"

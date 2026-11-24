@@ -43,11 +43,22 @@ if (-not (Test-Path $EnvFile)) { throw "env ausente: $EnvFile (copie de .env.exa
 
 Write-Output "==> phase 2/6 env-validate (fail fast, sem expor valores)"
 $missing = @()
-foreach ($var in @("POSTGRES_PASSWORD","SECRET_KEY","UTILS_SECRET","GEMINI_API_KEY","ANYTHINGLLM_JWT_SECRET","ANYTHINGLLM_AUTH_TOKEN","ANYTHINGLLM_API_KEY","OUTLINE_API_KEY","DRIVE_SA_KEY_PATH","DRIVE_ROOT_FOLDER_ID")) {
+foreach ($var in @("POSTGRES_PASSWORD","SECRET_KEY","UTILS_SECRET","ANYTHINGLLM_JWT_SECRET","ANYTHINGLLM_AUTH_TOKEN","ANYTHINGLLM_API_KEY","OUTLINE_API_KEY","DRIVE_SA_KEY_PATH","DRIVE_ROOT_FOLDER_ID")) {
   if ([string]::IsNullOrWhiteSpace((Get-EnvValue $var))) { $missing += $var }
 }
 if ($missing.Count -gt 0) { throw "variáveis vazias no env: $($missing -join ' ')" }
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue "GEMINI_API_KEYS")) -and [string]::IsNullOrWhiteSpace((Get-EnvValue "GEMINI_API_KEY"))) {
+  throw "defina GEMINI_API_KEYS (uma ou mais chaves) ou GEMINI_API_KEY"
+}
 if (-not (Test-Path (Get-EnvValue "DRIVE_SA_KEY_PATH"))) { throw "DRIVE_SA_KEY_PATH não existe" }
+if ($overlay.Count -gt 0) {
+  foreach ($cert in @("fullchain.pem","privkey.pem")) {
+    $path = Join-Path $infraDir "certs/$cert"
+    if (-not (Test-Path $path) -or (Get-Item $path).Length -eq 0) {
+      throw "TLS de produção exige $path (a porta 443 falharia no boot do edge)"
+    }
+  }
+}
 Invoke-Compose @("config", "-q") | Out-Null
 
 Write-Output "==> phase 3/6 backup"

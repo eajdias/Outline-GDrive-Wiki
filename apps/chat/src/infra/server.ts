@@ -4,18 +4,17 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import path from "node:path";
 import { AskUpstreamError, AskValidationError, askQuestion } from "../usecases/ask.js";
 import type { Runtime } from "./context.js";
+import { BodyTooLargeError, headerValue, isPrivatePeer, readBody } from "./request-body.js";
 import { securityHeaders } from "./security-headers.js";
 import { upstreamResponse } from "./upstream-errors.js";
 
 const PUBLIC_DIR = path.resolve(import.meta.dirname, "../../../public");
-const RENDER_JS = path.resolve(import.meta.dirname, "../domain/markdown.js");
+const RENDER_JS = path.resolve(import.meta.dirname, "../domain/markdown.entry.js");
 
 interface StaticFile {
   file: string;
   type: string;
 }
-
-export class BodyTooLargeError extends Error {}
 
 function staticFiles(): Record<string, StaticFile> {
   return {
@@ -52,31 +51,15 @@ function isClientAbort(error: unknown): boolean {
   return error.name === "AbortError" || error.message === "aborted" || code === "ECONNRESET";
 }
 
-async function readBody(request: IncomingMessage, limit: number): Promise<string> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  let tooLarge = false;
-
-  for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    size += buffer.length;
-    if (size > limit) {
-      tooLarge = true;
-      chunks.length = 0;
-      continue;
-    }
-    if (!tooLarge) chunks.push(buffer);
-  }
-
-  if (tooLarge) throw new BodyTooLargeError();
-  return Buffer.concat(chunks).toString("utf8");
-}
-
 function clientIp(request: IncomingMessage): string {
-  const forwarded = request.headers["x-forwarded-for"];
-  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  const first = raw?.split(",")[0]?.trim();
-  return first && first.length > 0 ? first : (request.socket.remoteAddress ?? "unknown");
+  const realIp = headerValue(request, "x-real-ip");
+  if (realIp) return realIp;
+
+  const peer = request.socket.remoteAddress ?? undefined;
+  if (!isPrivatePeer(peer)) return peer ?? "unknown";
+
+  const hops = headerValue(request, "x-forwarded-for")?.split(",").map((hop) => hop.trim()).filter(Boolean);
+  return hops?.at(-1) ?? peer ?? "unknown";
 }
 
 function questionFrom(payload: unknown): string | null {

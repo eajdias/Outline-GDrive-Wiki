@@ -1,10 +1,14 @@
-import { createConnection } from "node:net";
+import { createConnection, type Socket } from "node:net";
 import type { Logger } from "@repo/logger";
 
 interface Pending {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
 }
+
+const COMMAND_TIMEOUT_MS = 2_000;
+const RECONNECT_DELAY_MS = 1_000;
 
 function encode(args: (string | number)[]): string {
   const parts: string[] = [`*${args.length}\r\n`];
@@ -15,7 +19,7 @@ function encode(args: (string | number)[]): string {
   return parts.join("");
 }
 
-function tryParseReply(buffer: Uint8Array): { value: unknown; rest: Uint8Array } | null {
+export function tryParseReply(buffer: Uint8Array): { value: unknown; rest: Uint8Array } | null {
   const text = Buffer.from(buffer).toString("utf8");
   if (!text.startsWith("*") && !text.startsWith("$") && !text.startsWith(":") && !text.startsWith("+") && !text.startsWith("-")) {
     return null;
@@ -61,42 +65,79 @@ export function createRedisClient(url: string, logger: Logger): RedisConnection 
   const host = parsed.hostname || "127.0.0.1";
   const port = Number.parseInt(parsed.port || "6379", 10);
 
-  const socket = createConnection({ host, port });
-  socket.setKeepAlive(true);
+  let socket: Socket | null = null;
   let buffer: Uint8Array = new Uint8Array(0);
   const queue: Pending[] = [];
+  let closed = false;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function append(chunk: Uint8Array): void {
-    const next = new Uint8Array(buffer.length + chunk.length);
-    next.set(buffer);
-    next.set(chunk, buffer.length);
-    buffer = next;
+  function failQueue(reason: Error): void {
+    for (const pending of queue.splice(0)) {
+      clearTimeout(pending.timeout);
+      pending.reject(reason);
+    }
   }
 
-  socket.on("data", (chunk: Buffer) => {
-    append(chunk);
-    for (;;) {
-      const pending = queue[0];
-      if (!pending) return;
-      const parsedReply = tryParseReply(buffer);
-      if (!parsedReply) return;
-      buffer = parsedReply.rest;
-      queue.shift();
-      if (parsedReply.value instanceof Error) pending.reject(parsedReply.value);
-      else pending.resolve(parsedReply.value);
-    }
-  });
+  function connect(): void {
+    buffer = new Uint8Array(0);
+    const connection = createConnection({ host, port });
+    socket = connection;
 
-  socket.on("error", (error) => {
-    logger.warn("redis connection error", { error });
-    for (const pending of queue.splice(0)) {
-      pending.reject(error instanceof Error ? error : new Error(String(error)));
-    }
-  });
+    connection.on("data", (chunk: Buffer) => {
+      const next = new Uint8Array(buffer.length + chunk.length);
+      next.set(buffer);
+      next.set(chunk, buffer.length);
+      buffer = next;
+
+      for (;;) {
+        const pending = queue[0];
+        if (!pending) return;
+        const parsedReply = tryParseReply(buffer);
+        if (!parsedReply) return;
+        buffer = parsedReply.rest;
+        queue.shift();
+        clearTimeout(pending.timeout);
+        if (parsedReply.value instanceof Error) pending.reject(parsedReply.value);
+        else pending.resolve(parsedReply.value);
+      }
+    });
+
+    connection.on("error", (error) => {
+      logger.warn("redis connection error", { error });
+      failQueue(error instanceof Error ? error : new Error(String(error)));
+    });
+
+    connection.on("close", () => {
+      failQueue(new Error("redis connection closed"));
+      if (closed || reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        if (!closed) connect();
+      }, RECONNECT_DELAY_MS);
+      reconnectTimer.unref();
+    });
+  }
+
+  connect();
 
   function send(args: (string | number)[]): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      queue.push({ resolve, reject });
+      if (closed || socket === null) {
+        reject(new Error("redis client closed"));
+        return;
+      }
+
+      const pending: Pending = {
+        resolve,
+        reject,
+        timeout: setTimeout(() => {
+          const index = queue.indexOf(pending);
+          if (index >= 0) queue.splice(index, 1);
+          reject(new Error(`redis command timed out after ${COMMAND_TIMEOUT_MS} ms`));
+        }, COMMAND_TIMEOUT_MS),
+      };
+      pending.timeout.unref();
+      queue.push(pending);
       socket.write(encode(args));
     });
   }
@@ -106,6 +147,13 @@ export function createRedisClient(url: string, logger: Logger): RedisConnection 
       send(["EVAL", script, String(keys.length), ...keys, ...args]),
     quit: () =>
       new Promise<void>((resolve) => {
+        closed = true;
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        failQueue(new Error("redis client closed"));
+        if (socket === null) {
+          resolve();
+          return;
+        }
         socket.end(() => resolve());
       }),
   };

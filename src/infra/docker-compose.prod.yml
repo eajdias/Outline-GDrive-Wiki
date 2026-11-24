@@ -7,17 +7,21 @@
 
 services:
   outline:
-    ports: [] # sem acesso direto; só via edge
+    ports: !override [] # sem acesso direto; só via edge
     environment:
       URL: ${OUTLINE_PUBLIC_URL:?OUTLINE_PUBLIC_URL ausente}
       FORCE_HTTPS: "true"
 
   uploads:
-    ports: [] # anexos só via edge/wiki
+    ports: !override [] # anexos só via edge/wiki
 
   edge:
-    ports:
+    # !override é obrigatório: o merge padrão do Compose soma listas, então
+    # herdaria a porta de dev e publicaria 127.0.0.1:8091 em produção.
+    ports: !override
       - "80:80"
       - "443:443"
     volumes:
+      - ./edge/routes.conf:/usr/local/openresty/nginx/conf/routes.conf:ro
+      - ./edge/nginx.tls.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro

@@ -26,6 +26,15 @@ test("memory limiter tracks keys independently", async () => {
   assert.equal((await limiter.take("a")).allowed, false);
 });
 
+test("memory limiter forgets keys whose window expired", async () => {
+  const limiter = new MemoryRateLimiter(2, 60_000);
+  for (let index = 0; index < 5; index += 1) await limiter.take(`ip-${index}`, 0);
+  assert.equal(limiter.size(), 5);
+
+  await limiter.take("fresh", 120_000);
+  assert.equal(limiter.size(), 1);
+});
+
 test("redis limiter allows and blocks via lua result", async () => {
   let calls = 0;
   const redis = {

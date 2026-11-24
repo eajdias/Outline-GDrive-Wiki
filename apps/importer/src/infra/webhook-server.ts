@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { Logger } from "@repo/logger";
 
@@ -33,6 +34,18 @@ export interface WebhookServer {
   listen(): Promise<void>;
   close(): Promise<void>;
   port(): number;
+}
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw;
+}
+
+function tokenMatches(expected: string, received: string | undefined): boolean {
+  if (!received) return false;
+  const expectedBytes = Buffer.from(expected);
+  const receivedBytes = Buffer.from(received);
+  return expectedBytes.length === receivedBytes.length && timingSafeEqual(expectedBytes, receivedBytes);
 }
 
 function respond(response: ServerResponse, status: number, body: unknown): void {
@@ -94,7 +107,8 @@ function handle(request: IncomingMessage, response: ServerResponse, options: Web
     return;
   }
 
-  if (options.expectedToken && request.headers["x-goog-channel-token"] !== options.expectedToken) {
+  const receivedToken = request.headers["x-goog-channel-token"];
+  if (!options.expectedToken || !tokenMatches(options.expectedToken, headerValue(receivedToken))) {
     options.logger.warn("drive webhook rejected: invalid channel token");
     respond(response, 401, { error: "invalid channel token" });
     return;
