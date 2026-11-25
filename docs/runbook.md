@@ -134,7 +134,7 @@ docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verif
 ./src/infra/release.sh 0.1.0   # exige repo limpo; sai em dist/outline-gdrive-wiki-0.1.0.tar.gz
 ```
 
-O bundle (96K) leva `apps packages src docs scripts README LICENSE package*.json` + `MANIFEST.json` — sem `node_modules`, `dist`, `.env` ou segredos. Na VPS: extrair, `cp .env.example .env`, preencher segredos ([`setup.md`](setup.md#3-preencher-o-env)), rodar `./src/infra/deploy.sh`.
+O bundle leva `apps packages src docs scripts README LICENSE package*.json` + `MANIFEST.json` — sem `node_modules`, `dist`, `.env` ou segredos, e vem com `.sha256` para conferência. Na VPS: extrair, `cp .env.example .env`, preencher segredos ([`setup.md`](setup.md#3-preencher-o-env)), rodar `./src/infra/deploy.sh`.
 
 ## Atualizar o Outline
 
