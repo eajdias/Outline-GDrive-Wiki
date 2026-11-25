@@ -36,8 +36,8 @@ function mockClient() {
     statements,
     query: async (text: string, params: unknown[] = []) => {
       const normalized = text.trimStart().replace(/\s+/g, " ");
-      statements.push(normalized.slice(0, 40));
-      if (normalized.startsWith("CREATE TABLE")) return { rows: [] };
+      statements.push(normalized.slice(0, 400));
+      if (normalized.startsWith("CREATE SCHEMA") || normalized.startsWith("CREATE TABLE")) return { rows: [] };
       if (normalized.startsWith("SELECT * FROM imports WHERE")) {
         const record = imports.get(params[0] as string);
         return { rows: record ? [toRow(record)] : [] };
@@ -116,7 +116,9 @@ test("creates schema on first use", async () => {
 
   await store.get("missing");
 
-  assert.ok(client.statements.some((statement) => statement.startsWith("CREATE TABLE")));
+  const batch = client.statements.find((statement) => statement.startsWith("CREATE SCHEMA"));
+  assert.ok(batch?.includes("kb_importer"));
+  assert.ok(batch?.includes("CREATE TABLE IF NOT EXISTS imports"));
   await store.close();
 });
 
@@ -144,7 +146,7 @@ test("serializes queries on the shared pg client", async () => {
     query: async (text: string) => {
       active += 1;
       maxActive = Math.max(maxActive, active);
-      if (text.startsWith("CREATE TABLE")) {
+      if (text.trimStart().startsWith("CREATE")) {
         active -= 1;
         return { rows: [] };
       }

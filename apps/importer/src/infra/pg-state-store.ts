@@ -27,6 +27,7 @@ function toRecord(row: Record<string, unknown>): ImportRecord {
 }
 
 const SCHEMA = `
+  CREATE SCHEMA IF NOT EXISTS kb_importer;
   CREATE TABLE IF NOT EXISTS imports (
     drive_file_id TEXT PRIMARY KEY,
     outline_id    TEXT,
