@@ -16,7 +16,7 @@
 
 - Código, comentários e commits em inglês; conversa em PT-BR. Conventional commits, branches `feat/` e `fix/`.
 - Segredo nunca versionado (`.env` fora do git, `600` no servidor).
-- Sem barreira de segredo na v1 (uso em rede interna). Antes de expor o acervo para fora, reintroduzir a varredura bloqueante.
+- Uso em rede interna: sem autenticação por documento e sem varredura de segredos no importador. Exposição pública do acervo não é suportada.
 - Mostre a saída real do comando antes de dizer que terminou. Zero WARNING/ERROR em lint e compilador.
 - Mudou comportamento, mudou o doc correspondente no mesmo commit. Em divergência, o código vence e a doc é corrigida junto.
 - Contrato vem do código (`--help`, serviço rodando), não da memória.

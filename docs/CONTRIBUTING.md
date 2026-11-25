@@ -8,7 +8,7 @@
 ## Fluxo
 
 1. Branch a partir de `main`: `feat/<o-que>` para feature, `fix/<o-que>` para bug.
-2. `npm run verify` na raiz antes de abrir PR — gate: `tsc` + `check-rules.mjs` + `node --test` em todos os workspaces. Sem WARNING/ERROR.
+2. `npm run verify` na raiz antes de abrir PR — gate: build dos pacotes `@repo/*` em ordem de dependência, `tsc` + `check-rules.mjs` + `node --test` em todos os workspaces. Sem WARNING/ERROR.
 3. Mudou comportamento, mudou o doc correspondente **no mesmo commit** (regra do repo: código vence a doc em divergência, e a doc é corrigida junto).
 4. Commits em inglês, conventional commits (`feat:`, `fix:`, `docs:`, `chore:`), com trailer:
 
