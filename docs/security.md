@@ -1,6 +1,6 @@
 # Segurança
 
-Modelo de ameaça: rede interna confiável. Nada aqui presume exposição pública — antes de abrir o acervo para fora, cumpra o item "Antes de expor" abaixo.
+Modelo de ameaça: rede interna confiável. Exposição pública do acervo não é suportada: não há autenticação nem varredura de segredos no importador.
 
 ## Onde moram os segredos
 
@@ -20,8 +20,4 @@ Sem autenticação por documento na v1: quem alcança o chat vê o acervo inteir
 
 ## Conteúdo não confiável
 
-Tudo que entra no RAG pode vazar numa resposta, inclusive por paráfrase. Trate conteúdo do wiki como não confiável (prompt injection). Sem barreira de segredo na v1 (decisão registrada na ADR 0001).
-
-## Antes de expor para fora da rede
-
-Reintroduzir a varredura de segredos bloqueante no importador e rotacionar/redigir o que aparecer. Depois, reavaliar auth (sessão/token no edge ou no chat) — ver ADR 0003.
+Tudo que entra no RAG pode vazar numa resposta, inclusive por paráfrase. Trate conteúdo do wiki como não confiável (prompt injection). Sem varredura de segredos no importador (decisão registrada na ADR 0001).

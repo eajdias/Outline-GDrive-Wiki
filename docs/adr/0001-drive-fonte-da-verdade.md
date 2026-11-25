@@ -9,7 +9,7 @@
 - **Gatilho primário = push notification do Drive** (`changes.watch` → `POST /hooks/drive`, debounce). Fallback = `apply`/poll (`DRIVE_POLL_INTERVAL_MS`); o webhook só funciona com HTTPS público.
 - **Imagens inline via Docs API:** o importador reescreve cada `<img>` para `/drive-image/<docId>/<objectId>`; o `serve` resolve o `contentUri` na Google Docs API (escopo `documents.readonly`) com cache em memória. O edge publica a rota; só `docId` no estado é servido.
 - **Outline somente leitura por política** (não trava técnica por documento): o token do importador é o único escrevente; consumidores recebem leitura.
-- **Sem barreira de segredo na v1** (uso em rede interna): reavaliar antes de qualquer exposição externa do acervo.
+- **Sem varredura de segredos no importador** (uso em rede interna): exposição pública do acervo não é suportada.
 
 ## Consequências
 

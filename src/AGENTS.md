@@ -27,7 +27,7 @@ Falha o gate: `domain` importando outra camada; `process.env` fora de `infra/con
 - Arquivo de produção ≤ 250 linhas, teste ≤ 400. Classe ≤ 8 métodos públicos.
 - Sem `utils`/`helpers` genérico, sem wrapper de repasse, sem flag que muda tudo, sem comentário que repete o código. Menor mudança que resolve; DRY só a partir do terceiro uso real.
 
-Verificação: `npm run verify` na raiz (tsc + `check-rules.mjs` + `node --test` por workspace). Regra nova entra no script.
+Verificação: `npm run verify` na raiz (build dos pacotes `@repo/*`, tsc + `check-rules.mjs` + `node --test` por workspace). Regra nova entra no script.
 
 ## Testes
 
