@@ -104,14 +104,14 @@ Quando 80/443 já pertencem ao nginx do host, o edge nunca binda essas portas: o
 
 ### Fase 1 — teste privado no tailnet (sem domínio)
 
-`.env` com o IP do Tailscale da VPS (`tailscale ip -4` nela; hoje `100.75.96.11`):
+`.env` com o IP do Tailscale da VPS (`tailscale ip -4` nela; hoje `100.65.4.90`):
 
 ```bash
-EDGE_BIND_IP=100.75.96.11
+EDGE_BIND_IP=100.65.4.90
 FORCE_HTTPS=false
-URL=http://100.75.96.11:8091
-OUTLINE_PUBLIC_URL=http://100.75.96.11:8091
-CHAT_PUBLIC_URL=http://100.75.96.11:8091/chat
+URL=http://100.65.4.90:8091
+OUTLINE_PUBLIC_URL=http://100.65.4.90:8091
+CHAT_PUBLIC_URL=http://100.65.4.90:8091/chat
 ```
 
 ```bash
@@ -119,7 +119,7 @@ DEPLOY_ENV=vps ./src/infra/deploy.sh --yes
 docker compose -f src/infra/docker-compose.yml -f src/infra/docker-compose.vps.yml run --rm --no-deps importer seed
 ```
 
-Wiki em http://100.75.96.11:8091 — acesso só dentro do tailnet, sem tocar no security group. Jamais `0.0.0.0`: o host tem IP público e a porta ficaria aberta à internet.
+Wiki em http://100.65.4.90:8091 — acesso só dentro do tailnet, sem tocar no security group. Jamais `0.0.0.0`: o host tem IP público e a porta ficaria aberta à internet.
 
 ### Fase 2 — domínio público
 
