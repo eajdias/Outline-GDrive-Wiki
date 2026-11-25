@@ -19,7 +19,7 @@ COPY package.json package-lock.json* ./
 COPY packages/logger/package.json ./packages/logger/package.json
 COPY packages/env/package.json ./packages/env/package.json
 COPY apps/llm-gateway/package.json ./apps/llm-gateway/package.json
-RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache verify
 COPY --from=build /app/apps/llm-gateway/dist ./dist
 COPY --from=build /app/packages/logger/dist ./node_modules/@repo/logger/dist
 COPY --from=build /app/packages/env/dist ./node_modules/@repo/env/dist
