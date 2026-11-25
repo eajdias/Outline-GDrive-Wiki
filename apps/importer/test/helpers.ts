@@ -2,7 +2,7 @@ import { createLogger } from "@repo/logger";
 import type { DocsPort } from "../src/ports/docs.js";
 import type { DriveDoc, DrivePort } from "../src/ports/drive.js";
 import type { CreateDocumentInput, OutlinePort, UpdateDocumentInput } from "../src/ports/outline.js";
-import type { RagDocument, RagPort } from "../src/ports/rag.js";
+import type { RagDocument, RagPort, RawTextInput } from "../src/ports/rag.js";
 import type { ImportRecord, ImportState } from "../src/ports/state.js";
 import type { ImportDeps } from "../src/usecases/import-document.js";
 
@@ -16,6 +16,7 @@ export interface Harness {
   archived: string[];
   workspace: RagDocument[];
   removed: string[];
+  ragInputs: RawTextInput[];
 }
 
 export function makeDoc(id: string, name: string, folderId = "folder-1", folderPath = ["Geral"]): DriveDoc {
@@ -38,6 +39,7 @@ export function makeHarness(): Harness {
   const archived: string[] = [];
   const removed: string[] = [];
   const workspace: RagDocument[] = [];
+  const ragInputs: RawTextInput[] = [];
   let counter = 0;
 
   const state: ImportState = {
@@ -85,7 +87,8 @@ export function makeHarness(): Harness {
 
   const rag: RagPort = {
     ensureWorkspace: async () => {},
-    addRawText: async () => {
+    addRawText: async (input) => {
+      ragInputs.push(input);
       counter += 1;
       return `location-${counter}`;
     },
@@ -104,7 +107,7 @@ export function makeHarness(): Harness {
   };
 
   const harness: Harness = {
-    deps: { drive, docs, outline, rag, state, logger: createLogger("test", "error") },
+    deps: { drive, docs, outline, rag, state, citationBaseUrl: "https://wiki.test", logger: createLogger("test", "error") },
     docs: [],
     html,
     records,
@@ -113,6 +116,7 @@ export function makeHarness(): Harness {
     archived,
     workspace,
     removed,
+    ragInputs,
   };
 
   return harness;

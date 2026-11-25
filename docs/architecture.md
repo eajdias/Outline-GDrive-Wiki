@@ -44,6 +44,7 @@ flowchart TB
     Edge -->|"/chat/ → UI + /ask"| Chat
     Edge -->|"POST /hooks/drive"| Importer
     Edge -->|"GET /drive-image/..."| Importer
+    Chat -->|"POST /api/auth.info (cookie accessToken)"| Outline
     Chat -->|"POST /v1/workspace/.../chat"| RAG
     RAG -->|"chat + embeddings"| Gateway
     Gateway -->|"cota esgotada? próxima chave"| Gemini
@@ -54,10 +55,12 @@ flowchart TB
     Outline -.-> Redis
 ```
 
+No Compose, o chat espera `outline`, `anythingllm` e `redis` ficarem healthy antes de subir.
+
 | Peça | Papel | Detalhe |
 |---|---|---|
 | `apps/importer` | Espelha Drive → Outline e Drive → AnythingLLM; serve imagens | Único escrevente no Outline |
-| `apps/chat` | Pergunta/resposta sobre `/v1/chat`, devolve resposta com fontes | API key só no backend; corta abaixo de `CHAT_MIN_SCORE` |
+| `apps/chat` | Pergunta/resposta sobre `/v1/chat`, devolve resposta com fontes | API key só no backend; valida sessão do Outline em toda rota exceto `/healthz`; corta abaixo de `CHAT_MIN_SCORE` |
 | `apps/llm-gateway` | Roteia chat e embeddings para os provedores LLM | Rotaciona chaves no 429 e troca de provedor quando todas esgotam; contrato em `apps/llm-gateway/README.md` |
 | edge (openresty) | Wiki + chat + webhook + imagens num ponto | Ver [`security.md`](security.md) |
 | PostgreSQL / Redis | Estado do importer + persistência do Outline; rate-limit do chat | Rede interna, sem porta publicada |
@@ -84,7 +87,7 @@ sequenceDiagram
     Imp->>Imp: checkpoint pageToken + dead_letters em falha
 ```
 
-Regras de seleção: só Google Docs; pastas em `IMPORT_DRIVE_IGNORE_FOLDERS` ficam fora; cada pasta espelha a coleção homônima (`OUTLINE_COLLECTION_MAP` por ID) ou cai na default (`OUTLINE_DEFAULT_COLLECTION_ID`). Canal do Drive expira em até 7 dias — o `serve` renova antes (`GET /healthz` mostra o estado). Doc com falha vai para `dead_letters` sem travar o resto. Detalhes de contrato em `apps/importer/README.md`.
+Regras de seleção: só Google Docs; pastas em `IMPORT_DRIVE_IGNORE_FOLDERS` ficam fora; cada pasta espelha a coleção homônima (`OUTLINE_COLLECTION_MAP` por ID) ou cai na default (`OUTLINE_DEFAULT_COLLECTION_ID`). A citação enviada ao RAG aponta para `${OUTLINE_PUBLIC_URL}/doc/<outlineId>`. O hash usa o schema `2` e inclui `OUTLINE_PUBLIC_URL`: trocar o schema invalida o estado anterior, e trocar a URL pública reindexa as citações no próximo `seed`. Canal do Drive expira em até 7 dias — o `serve` renova antes (`GET /healthz` mostra o estado). Doc com falha vai para `dead_letters` sem travar o resto. Detalhes de contrato em `apps/importer/README.md`.
 
 ## Imagens inline
 
@@ -96,8 +99,11 @@ O export HTML traz imagem como data URI; o importador troca por `/drive-image/<d
 sequenceDiagram
     participant Nav as navegador (bolha ?embed=1)
     participant Chat as chat POST /ask
+    participant Out as Outline /api/auth.info
     participant Rag as AnythingLLM /v1/chat
-    Nav->>Chat: pergunta
+    Nav->>Chat: pergunta + cookie accessToken
+    Chat->>Out: valida sessão
+    Out-->>Chat: 200 ou 401
     Chat->>Chat: rate-limit (Redis)
     Chat->>Rag: query no workspace kb-drive
     Rag-->>Chat: textResponse + sources[] (link + score)
@@ -113,7 +119,7 @@ O AnythingLLM não fala com o Gemini direto: aponta para o `llm-gateway`, que gu
 ## Limites assumidos
 
 - Outline não tem busca vetorial: serve leitura, não pergunta.
-- Sem autenticação por documento na v1 — quem alcança o chat vê o acervo inteiro (ver [`security.md`](security.md)).
+- Sem autenticação por documento — qualquer sessão válida do Outline alcança o acervo inteiro no chat (ver [`security.md`](security.md)).
 - Produção expõe 22/80/443; Postgres, Redis, AnythingLLM, llm-gateway, chat e importer nunca publicam porta.
 
 Decisões que explicam o "porquê": [`adr/`](adr/).

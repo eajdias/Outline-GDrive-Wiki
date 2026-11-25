@@ -16,8 +16,11 @@ export interface ImportDeps {
   outline: OutlinePort;
   rag: RagPort;
   state: ImportState;
+  citationBaseUrl: string;
   logger: Logger;
 }
+
+const CITATION_SCHEMA = "2";
 
 export interface ImportResult {
   outcome: ImportOutcome;
@@ -42,7 +45,7 @@ export async function importDocument(
     );
   }
 
-  const hash = hashDocument(markdown, doc.webViewLink);
+  const hash = hashDocument(markdown, doc.webViewLink, CITATION_SCHEMA, deps.citationBaseUrl);
 
   if (existing && existing.sha256 === hash && existing.outlineId && existing.ragPath) {
     if (existing.modifiedTime !== doc.modifiedTime || existing.title !== doc.name) {
@@ -63,6 +66,8 @@ export async function importDocument(
     outlineId = await deps.outline.create({ title: doc.name, markdown, collectionId });
   }
 
+  const citationUrl = `${deps.citationBaseUrl}/doc/${outlineId}`;
+
   await deps.state.upsert({
     driveFileId: doc.id,
     outlineId,
@@ -74,7 +79,7 @@ export async function importDocument(
     folderId: doc.folderId,
   });
 
-  const location = await deps.rag.addRawText({ title: doc.name, text: markdown, url: doc.webViewLink });
+  const location = await deps.rag.addRawText({ title: doc.name, text: markdown, url: citationUrl });
   const previous = existing?.ragPath ?? null;
 
   let workspace;

@@ -20,6 +20,7 @@ test("loads required values and applies defaults", () => {
   assert.equal(config.anythingllm.timeoutMs, 60_000);
   assert.equal(config.anythingllm.minScore, 0.65);
   assert.equal(config.server.allowEmbed, false);
+  assert.equal(config.outline.authUrl, "http://outline:3000");
   assert.equal(config.logLevel, "info");
 });
 
@@ -44,4 +45,11 @@ test("accepts a comma-separated workspace list", () => {
 
 test("enables embed framing with the flag", () => {
   assert.equal(loadConfig({ ...BASE_ENV, CHAT_ALLOW_EMBED: "1" }).server.allowEmbed, true);
+});
+
+test("accepts an internal Outline auth URL", () => {
+  assert.equal(
+    loadConfig({ ...BASE_ENV, OUTLINE_AUTH_URL: "http://internal-outline:3000/" }).outline.authUrl,
+    "http://internal-outline:3000",
+  );
 });

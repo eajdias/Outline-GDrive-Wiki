@@ -69,7 +69,7 @@ function questionFrom(payload: unknown): string | null {
 }
 
 export function createChatServer(runtime: Runtime): Server {
-  const { config, logger, chat, limiter } = runtime;
+  const { config, logger, chat, limiter, auth } = runtime;
   const files = staticFiles();
 
   const serveStatic = async (entry: StaticFile, response: ServerResponse): Promise<void> => {
@@ -190,6 +190,14 @@ export function createChatServer(runtime: Runtime): Server {
 
     if (url.pathname === "/healthz" && request.method === "GET") {
       sendJson(response, 200, { status: "ok" });
+      return;
+    }
+
+    if (!(await auth.verify(request.headers.cookie))) {
+      sendJson(response, 401, {
+        error: "unauthorized",
+        message: "Entre no Outline para usar o chat.",
+      });
       return;
     }
 

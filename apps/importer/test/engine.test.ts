@@ -17,6 +17,16 @@ test("imports a new document into both destinations", async () => {
   assert.equal(harness.records.get("d1")?.ragPath, "location-1");
 });
 
+test("points the RAG citation at the Outline document, not the Drive file", async () => {
+  const harness = makeHarness();
+  harness.html.set("d1", "<h1>Manual</h1>");
+
+  await importDocument(harness.deps, makeDoc("d1", "Manual"), "collection-1");
+
+  assert.equal(harness.ragInputs[0]?.url, "https://wiki.test/doc/outline-1");
+  assert.notEqual(harness.ragInputs[0]?.url, "https://drive.test/d1");
+});
+
 test("is idempotent: same hash does not reindex", async () => {
   const harness = makeHarness();
   harness.html.set("d1", "<h1>Manual</h1>");

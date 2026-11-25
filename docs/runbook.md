@@ -52,6 +52,7 @@ Webhook só chega com HTTPS público (`DRIVE_WEBHOOK_URL`); sem ele, poll a cada
 |---|---|
 | RAG desatualizado | `verify`, depois `apply` |
 | imagem 404/502 | Docs API ligada? escopo `documents.readonly`? doc no estado? |
+| chat 401 (UI ou `/ask`) | sessão do Outline ausente/expirada; `/healthz` é público. Com sessão ativa, confira `OUTLINE_AUTH_URL` do chat |
 | chat 413 / 429 | encurtar a pergunta / esperar a janela (Redis compartilhado entre réplicas) |
 | chat sempre "não encontrei" | `verify`; ajustar `CHAT_MIN_SCORE` com evidência |
 | bolha sumiu | snippet injetado? `script-src` no CSP? |

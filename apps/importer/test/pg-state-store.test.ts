@@ -132,3 +132,40 @@ test("records dead letters without throwing", async () => {
   );
   await store.close();
 });
+
+test("serializes queries on the shared pg client", async () => {
+  let active = 0;
+  let maxActive = 0;
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = () => resolve();
+  });
+  const client = {
+    query: async (text: string) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      if (text.startsWith("CREATE TABLE")) {
+        active -= 1;
+        return { rows: [] };
+      }
+      await gate;
+      active -= 1;
+      return { rows: [] };
+    },
+    end: async () => undefined,
+  };
+
+  const store = createPostgresStateStore(client);
+  const first = store.get("drive-1");
+  const second = store.get("drive-2");
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  try {
+    assert.equal(active, 1);
+  } finally {
+    release();
+  }
+  await Promise.all([first, second]);
+  assert.equal(maxActive, 1);
+  await store.close();
+});

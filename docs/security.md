@@ -1,6 +1,6 @@
 # Segurança
 
-Modelo de ameaça: rede interna confiável. Exposição pública do acervo não é suportada: não há autenticação nem varredura de segredos no importador.
+Modelo de ameaça: qualquer visitante com login válido no Outline. A wiki e o chat exigem sessão do Outline; não há autenticação por documento nem varredura de segredos no importador.
 
 ## Onde moram os segredos
 
@@ -10,13 +10,13 @@ As chaves do provedor LLM vivem **só** no `llm-gateway`; o AnythingLLM fala com
 
 ## Superfície de rede
 
-Só o edge publica porta (`127.0.0.1:8091` no local; 22/80/443 com TLS em produção). Postgres, Redis, AnythingLLM, llm-gateway, chat e importer ficam na rede interna do compose. O AnythingLLM só fala `/v1` com API key — e a chave nunca vai ao navegador.
+No local, o edge publica `127.0.0.1:8091` e o Outline publica `:3000` para acesso direto; em produção, o overlay remove a porta do Outline e só o edge publica 22/80/443 com TLS. Postgres, Redis, AnythingLLM, llm-gateway, chat e importer ficam na rede interna do compose. O AnythingLLM só fala `/v1` com API key — e a chave nunca vai ao navegador.
 
 O overlay de produção remove as portas de dev com `!override`; `ports: []` sozinho **não** remove (o Compose soma listas no merge). Fora do Compose, o edge só confia em `X-Real-IP`/`X-Forwarded-For` quando o peer direto é privado (o próprio edge), então o rate limit do chat não é forjável por header.
 
 ## Quem vê o quê
 
-Sem autenticação por documento na v1: quem alcança o chat vê o acervo inteiro. O controle é posicional (rede restrita / página hospedeira). O que contém: rate limit por IP (com a identidade vinda do edge, não do header forjado), corpo máximo de 8 KB e corte por score (`CHAT_MIN_SCORE`). O webhook do Drive é fechado: sem `DRIVE_WEBHOOK_TOKEN` configurado, toda notificação é recusada. Logs nunca trazem `Authorization` — regra de código em `src/AGENTS.md`.
+O chat nega qualquer rota (exceto `/healthz`) sem uma sessão válida do Outline: o edge repassa o cookie `accessToken` e o chat valida em `POST /api/auth.info` em `OUTLINE_AUTH_URL` (`http://outline:3000` por default). Qualquer usuário autenticado vê o acervo inteiro — não há auth por documento. O que contém: rate limit por IP (identidade vinda do edge, não do header forjado), corpo máximo de 8 KB e corte por score (`CHAT_MIN_SCORE`). O webhook do Drive exige `DRIVE_WEBHOOK_TOKEN`; `/drive-image/` serve imagens por ID opaco sem checar sessão. Logs nunca trazem `Authorization` ou cookies — regra de código em `src/AGENTS.md`.
 
 ## Conteúdo não confiável
 

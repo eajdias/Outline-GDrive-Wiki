@@ -44,6 +44,7 @@ export async function createRuntime(config: Config): Promise<Runtime> {
     outline,
     rag,
     state,
+    citationBaseUrl: config.outline.publicUrl,
     resolver,
     close: () => state.close(),
   };

@@ -13,6 +13,9 @@ export interface Config {
   redis: {
     url: string | null;
   };
+  outline: {
+    authUrl: string;
+  };
   anythingllm: {
     baseUrl: string;
     apiKey: string;
@@ -62,6 +65,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     redis: {
       url: optionalOrNull(env, "REDIS_URL"),
+    },
+    outline: {
+      authUrl: stripTrailingSlash(optional(env, "OUTLINE_AUTH_URL", "http://outline:3000")),
     },
     logLevel: parseLogLevel(env.LOG_LEVEL),
   };

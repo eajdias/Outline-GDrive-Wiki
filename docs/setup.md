@@ -61,7 +61,7 @@ Preencha nesta ordem (só o que tem `=` vazio precisa de você; o resto já vem 
 | `DRIVE_WEBHOOK_TOKEN` | obrigatório se usar webhook (sem ele o importador recusa toda notificação) | — |
 | `STATE_DATABASE_URL` | já vem montado com `POSTGRES_*`; só ajuste se mudar o banco | `postgres://outline:…@postgres:5432/outline` |
 
-Não mexa (a menos que saiba por quê): URLs internas (`OUTLINE_API_URL`, `ANYTHINGLLM_API_URL`, `REDIS_URL`, `GENERIC_OPEN_AI_BASE_PATH`), portas, `*_MS`, `IMPORT_CONCURRENCY`, `CHAT_*` (limites), `LLM_GATEWAY_*` (política de cota), `EMBEDDING_OUTPUT_DIMENSIONS` (depois do seed), `OUTLINE_PUBLIC_URL` (só produção).
+Não mexa (a menos que saiba por quê): URLs internas (`OUTLINE_API_URL`, `OUTLINE_AUTH_URL`, `ANYTHINGLLM_API_URL`, `REDIS_URL`, `GENERIC_OPEN_AI_BASE_PATH`), portas, `*_MS`, `IMPORT_CONCURRENCY`, `CHAT_*` (limites), `LLM_GATEWAY_*` (política de cota), `EMBEDDING_OUTPUT_DIMENSIONS` (depois do seed), `OUTLINE_PUBLIC_URL` (só produção).
 
 ## 4. Primeiro boot + chaves geradas pelos serviços
 
@@ -106,8 +106,8 @@ docker compose -f src/infra/docker-compose.yml run --rm --no-deps importer verif
 
 ## 6. Checagem fim a fim (feito = tutorial completo)
 
-1. Wiki: http://127.0.0.1:8091 — documentos do Drive aparecem nas coleções. ✅
-2. Chat: http://127.0.0.1:8091/chat/ — pergunte algo que está nos docs; resposta vem **com fontes** (link + score). ✅
+1. Wiki: http://127.0.0.1:8091 — entre com um usuário válido; documentos do Drive aparecem nas coleções. ✅
+2. Chat: http://127.0.0.1:8091/chat/ — com a sessão do Outline ativa, pergunte algo que está nos docs; resposta vem **com fontes** (link + score). ✅
 3. Sobe o `serve` contínuo: `docker compose -f src/infra/docker-compose.yml up -d importer` (webhook se houver `DRIVE_WEBHOOK_URL`, senão poll). ✅
 
 Atualizações futuras usam o deploy idempotente (valida + backup + health-gate): [`runbook.md`](runbook.md#deploy-subiratualizar-o-stack).
@@ -121,6 +121,7 @@ Se algo falhou, veja a tabela abaixo. Se passou tudo: operação diária em [`ru
 | `seed` falha com 403 do Google | Drive API ou Docs API desativada; ou pasta não compartilhada com a SA |
 | `seed` falha com `invalid_grant` | JSON da SA errado/antigo; `DRIVE_SA_KEY_PATH` apontando para lugar inexistente |
 | Outline vazio após `seed` | token do importador sem escrita; `OUTLINE_COLLECTION_MAP` sem a pasta (e sem default) |
+| Chat responde 401 | sessão do Outline ausente/expirada; entre novamente na wiki antes de abrir o widget. Se a sessão estiver ativa, confira `OUTLINE_AUTH_URL` no chat |
 | Chat sempre "não encontrei" | workspace vazio (`seed` não rodou) ou `CHAT_MIN_SCORE` alto demais; confira `verify` |
 | `verify` exit 1 logo no início | normal antes do primeiro `seed` completo — rode `seed`, depois `verify` |
 | AnythingLLM 429/503 | cota de todas as chaves esgotou: confira `GET /healthz` do gateway e acrescente outra conta em `GEMINI_API_KEYS` |

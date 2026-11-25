@@ -60,26 +60,32 @@ const SCHEMA = `
 
 export function createPostgresStateStore(client: PostgresClient): ImportState {
   let ensured: Promise<void> | null = null;
+  let tail: Promise<void> = Promise.resolve();
+  const query = (text: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }> => {
+    const result = tail.then(() => client.query(text, params));
+    tail = result.then(() => undefined, () => undefined);
+    return result;
+  };
   const ensure = (): Promise<void> => {
-    ensured ??= client.query(SCHEMA).then(() => undefined);
+    ensured ??= query(SCHEMA).then(() => undefined);
     return ensured;
   };
 
   return {
     async get(driveFileId) {
       await ensure();
-      const { rows } = await client.query("SELECT * FROM imports WHERE drive_file_id = $1", [driveFileId]);
+      const { rows } = await query("SELECT * FROM imports WHERE drive_file_id = $1", [driveFileId]);
       const row = rows[0];
       return row ? toRecord(row) : null;
     },
     async all() {
       await ensure();
-      const { rows } = await client.query("SELECT * FROM imports ORDER BY title");
+      const { rows } = await query("SELECT * FROM imports ORDER BY title");
       return rows.map(toRecord);
     },
     async upsert(record) {
       await ensure();
-      await client.query(
+      await query(
         `INSERT INTO imports (drive_file_id, outline_id, rag_path, sha256, web_view_link, modified_time, title, folder_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT(drive_file_id) DO UPDATE SET
@@ -104,16 +110,16 @@ export function createPostgresStateStore(client: PostgresClient): ImportState {
     },
     async remove(driveFileId) {
       await ensure();
-      await client.query("DELETE FROM imports WHERE drive_file_id = $1", [driveFileId]);
+      await query("DELETE FROM imports WHERE drive_file_id = $1", [driveFileId]);
     },
     async getMeta(key) {
       await ensure();
-      const { rows } = await client.query("SELECT value FROM meta WHERE key = $1", [key]);
+      const { rows } = await query("SELECT value FROM meta WHERE key = $1", [key]);
       return nullableText(rows[0]?.value);
     },
     async setMeta(key, value) {
       await ensure();
-      await client.query(
+      await query(
         "INSERT INTO meta (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         [key, value],
       );
@@ -121,14 +127,14 @@ export function createPostgresStateStore(client: PostgresClient): ImportState {
     async markRun(kind, report) {
       await ensure();
       const now = new Date().toISOString();
-      await client.query(
+      await query(
         "INSERT INTO runs (id, kind, started_at, finished_at, report) VALUES (gen_random_uuid(), $1, $2, $3, $4)",
         [kind, now, now, JSON.stringify(report)],
       );
     },
     async deadLetter(entry, payload) {
       await ensure();
-      await client.query(
+      await query(
         `INSERT INTO dead_letters (drive_file_id, reason, attempts, payload)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT(drive_file_id) DO UPDATE SET

@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { after, test } from "node:test";
 import type { RawSource } from "../src/domain/citations.js";
 import type { Config } from "../src/infra/config.js";
+import type { AuthVerifier } from "../src/ports/auth.js";
 import type { Runtime } from "../src/infra/context.js";
 import type { Logger } from "@repo/logger";
 import { createChatServer } from "../src/infra/server.js";
@@ -38,6 +39,9 @@ function config(overrides: Partial<Config["server"]> = {}): Config {
     redis: {
       url: null,
     },
+    outline: {
+      authUrl: "http://outline.test",
+    },
     logLevel: "error",
   };
 }
@@ -63,15 +67,26 @@ class StubChat implements ChatClient {
   }
 }
 
+class AllowAuth implements AuthVerifier {
+  async verify(): Promise<boolean> {
+    return true;
+  }
+}
+
 const servers: ReturnType<typeof createChatServer>[] = [];
 
-async function start(chat: ChatClient, serverConfig: Partial<Config["server"]> = {}): Promise<string> {
+async function start(
+  chat: ChatClient,
+  serverConfig: Partial<Config["server"]> = {},
+  auth: AuthVerifier = new AllowAuth(),
+): Promise<string> {
   const cfg = config(serverConfig);
   const runtime: Runtime = {
     config: cfg,
     logger: silentLogger,
     chat,
     limiter: new MemoryRateLimiter(cfg.server.rateLimitMax, cfg.server.rateLimitWindowMs),
+    auth,
     close: async () => {},
   };
   const server = createChatServer(runtime);
@@ -176,6 +191,28 @@ test("serves health, static assets and the expected 404/405", async () => {
 
   const missing = await fetch(`${base}/api/v1/workspace`);
   assert.equal(missing.status, 404);
+});
+
+test("requires an Outline session for chat routes but keeps health public", async () => {
+  let checks = 0;
+  const deny: AuthVerifier = {
+    verify: async () => {
+      checks += 1;
+      return false;
+    },
+  };
+  const base = await start(new StubChat({ text: "x", sources: [source(0.9)] }), {}, deny);
+
+  assert.equal((await fetch(`${base}/healthz`)).status, 200);
+  assert.equal(checks, 0);
+
+  const ask = await post(base, JSON.stringify({ question: "oi" }));
+  assert.equal(ask.status, 401);
+  assert.match((await ask.json() as { error: string }).error, /unauthorized/);
+
+  assert.equal((await fetch(`${base}/widget.js`)).status, 401);
+  assert.equal((await fetch(`${base}/`)).status, 401);
+  assert.ok(checks >= 3);
 });
 
 test("denies framing by default, including embed mode", async () => {

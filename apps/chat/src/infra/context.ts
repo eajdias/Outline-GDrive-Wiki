@@ -1,7 +1,9 @@
 import { createLogger, type Logger } from "@repo/logger";
+import type { AuthVerifier } from "../ports/auth.js";
 import type { ChatClient } from "../ports/chat.js";
 import { AnythingLLMClient } from "./chat-client.js";
 import type { Config } from "./config.js";
+import { OutlineSessionVerifier } from "./outline-auth.js";
 import { MemoryRateLimiter, RedisRateLimiter, type RateLimiter } from "./rate-limit.js";
 import { createRedisClient } from "./redis-client.js";
 
@@ -10,6 +12,7 @@ export interface Runtime {
   logger: Logger;
   chat: ChatClient;
   limiter: RateLimiter;
+  auth: AuthVerifier;
   close(): Promise<void>;
 }
 
@@ -38,6 +41,7 @@ export function createRuntime(config: Config): Runtime {
       logger,
     ),
     limiter,
+    auth: new OutlineSessionVerifier(config.outline.authUrl, logger),
     close,
   };
 }

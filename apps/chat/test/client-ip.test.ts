@@ -42,6 +42,7 @@ async function start(rateLimitMax: number): Promise<string> {
       minScore: 0.65,
     },
     redis: { url: null },
+    outline: { authUrl: "http://outline.test" },
     logLevel: "error",
   };
 
@@ -50,6 +51,7 @@ async function start(rateLimitMax: number): Promise<string> {
     logger: silentLogger,
     chat: new StubChat(),
     limiter: new MemoryRateLimiter(rateLimitMax, config.server.rateLimitWindowMs),
+    auth: { verify: async () => true },
     close: async () => {},
   };
 

@@ -207,9 +207,12 @@ services:
       CHAT_BODY_LIMIT_BYTES: ${CHAT_BODY_LIMIT_BYTES:-8192}
       CHAT_TIMEOUT_MS: ${CHAT_TIMEOUT_MS:-60000}
       CHAT_ALLOW_EMBED: ${CHAT_ALLOW_EMBED:-1}
+      OUTLINE_AUTH_URL: ${OUTLINE_AUTH_URL:-http://outline:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       anythingllm:
+        condition: service_healthy
+      outline:
         condition: service_healthy
       redis:
         condition: service_healthy
