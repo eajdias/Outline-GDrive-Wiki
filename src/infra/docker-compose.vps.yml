@@ -13,7 +13,8 @@ services:
     ports: !override [] # sem acesso direto; só via edge
     environment:
       URL: ${OUTLINE_PUBLIC_URL:?OUTLINE_PUBLIC_URL ausente}
-      FORCE_HTTPS: "true" # o host termina TLS e o edge recebe em HTTP puro
+      # true atrás do host com TLS (fase domínio); false no teste HTTP via tailnet
+      FORCE_HTTPS: "${FORCE_HTTPS:-true}"
 
   uploads:
     ports: !override [] # anexos só via edge/wiki

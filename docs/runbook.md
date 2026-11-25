@@ -100,7 +100,28 @@ Limites em `src/infra/.env.example`: corpo 8 KB, 10 perguntas/janela/IP, pergunt
 
 ## Reverse proxy do host (VPS compartilhada)
 
-Quando 80/443 já pertencem ao nginx do host, o edge nunca binda essas portas: o modo `vps` mantém o edge em 127.0.0.1:8091 e o host termina o TLS:
+Quando 80/443 já pertencem ao nginx do host, o edge nunca binda essas portas: o modo `vps` mantém o edge no IP configurado em `EDGE_BIND_IP` e o host termina o TLS. Deploy sempre com `DEPLOY_ENV=vps ./src/infra/deploy.sh`.
+
+### Fase 1 — teste privado no tailnet (sem domínio)
+
+`.env` com o IP do Tailscale da VPS (`tailscale ip -4` nela; hoje `100.75.96.11`):
+
+```bash
+EDGE_BIND_IP=100.75.96.11
+FORCE_HTTPS=false
+URL=http://100.75.96.11:8091
+OUTLINE_PUBLIC_URL=http://100.75.96.11:8091
+CHAT_PUBLIC_URL=http://100.75.96.11:8091/chat
+```
+
+```bash
+DEPLOY_ENV=vps ./src/infra/deploy.sh --yes
+docker compose -f src/infra/docker-compose.yml -f src/infra/docker-compose.vps.yml run --rm --no-deps importer seed
+```
+
+Wiki em http://100.75.96.11:8091 — acesso só dentro do tailnet, sem tocar no security group. Jamais `0.0.0.0`: o host tem IP público e a porta ficaria aberta à internet.
+
+### Fase 2 — domínio público
 
 ```bash
 sudo cp src/infra/host-nginx/wiki.conf.example /etc/nginx/sites-enabled/wiki.conf
@@ -109,9 +130,7 @@ sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d <dominio-real>
 ```
 
-No `.env`: `URL`, `OUTLINE_PUBLIC_URL` e `CHAT_PUBLIC_URL` apontam para `https://<dominio-real>` (trocar `OUTLINE_PUBLIC_URL` reindexa as citações no próximo `seed`). Deploy: `DEPLOY_ENV=vps ./src/infra/deploy.sh`.
-
-Fase privada (antes do domínio): `EDGE_BIND_IP=<ip-do-tailscale>` (valor de `tailscale ip -4` na VPS) e as três URLs com `http://<ip-do-tailscale>:8091`; acesso só dentro do tailnet, sem tocar no security group. Jamais `0.0.0.0` — o host tem IP público e a porta ficaria aberta à internet.
+No `.env`: `EDGE_BIND_IP=127.0.0.1`, `FORCE_HTTPS=true`, e `URL`, `OUTLINE_PUBLIC_URL`, `CHAT_PUBLIC_URL` com `https://<dominio-real>`. Depois `DEPLOY_ENV=vps ./src/infra/deploy.sh --yes` + `seed` (a troca de `OUTLINE_PUBLIC_URL` reindexa as citações).
 
 ## Backup e restore
 
