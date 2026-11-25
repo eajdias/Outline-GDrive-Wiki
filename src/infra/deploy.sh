@@ -102,10 +102,10 @@ compose up -d --wait --wait-timeout "$TIMEOUT" || {
 
 log "phase 6/6 summary"
 compose ps
-edge_port="$(grep -E '^EDGE_PORT=' "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]' || true)"
+edge_port="$(grep -E '^EDGE_PORT=' "$ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '[:space:]' || true)"
 edge_port="${edge_port:-8091}"
 if [ "$COMPOSE_OVERLAY" = "$COMPOSE_VPS" ]; then
-  public_url="$(grep -E '^OUTLINE_PUBLIC_URL=' "$ENV_FILE" | cut -d= -f2- | tr -d '[:space:]' || true)"
+  public_url="$(grep -E '^OUTLINE_PUBLIC_URL=' "$ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '[:space:]' || true)"
   printf 'Wiki: %s  Chat: %s/chat/  (edge local: http://127.0.0.1:%s)\n' "$public_url" "$public_url" "$edge_port"
 else
   printf 'Wiki: http://127.0.0.1:%s  Chat: http://127.0.0.1:%s/chat/\n' "$edge_port" "$edge_port"
