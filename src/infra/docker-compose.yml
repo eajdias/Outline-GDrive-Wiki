@@ -102,10 +102,10 @@ services:
     networks:
       - front
     healthcheck:
-      # 403/404 também contam como healthy: o dir montado pode estar vazio
-      # e sem index; o que importa é o nginx responder (wget exit 8 = erro
-      # HTTP do servidor; 4 = falha de rede).
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ 2>/dev/null; code=$$?; [ $$code -eq 0 ] || [ $$code -eq 8 ]"]
+      # O dir montado pode estar vazio e sem index (403/404). O que importa
+      # é o nginx responder HTTP (busybox wget retorna 1 tanto para erro
+      # HTTP quanto para falha de rede — por isso o grep no status).
+      test: ["CMD-SHELL", "out=$$(wget -S --spider http://127.0.0.1:80/ 2>&1); echo \"$$out\" | grep -qE 'HTTP/[0-9.]+ [234][0-9][0-9]'"]
       interval: 30s
       timeout: 5s
       retries: 3
