@@ -22,7 +22,7 @@ COPY packages/logger/package.json ./packages/logger/package.json
 COPY packages/env/package.json ./packages/env/package.json
 COPY packages/http/package.json ./packages/http/package.json
 COPY apps/chat/package.json ./apps/chat/package.json
-RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache verify
 COPY --from=build /app/apps/chat/dist ./dist
 COPY --from=build /app/apps/chat/public ./public
 COPY --from=build /app/packages/logger/dist ./node_modules/@repo/logger/dist

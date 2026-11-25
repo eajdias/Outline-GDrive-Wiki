@@ -22,7 +22,7 @@ COPY packages/logger/package.json ./packages/logger/package.json
 COPY packages/env/package.json ./packages/env/package.json
 COPY packages/http/package.json ./packages/http/package.json
 COPY apps/importer/package.json ./apps/importer/package.json
-RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache verify
 COPY --from=build /app/apps/importer/dist ./dist
 COPY --from=build /app/packages/logger/dist ./node_modules/@repo/logger/dist
 COPY --from=build /app/packages/env/dist ./node_modules/@repo/env/dist
