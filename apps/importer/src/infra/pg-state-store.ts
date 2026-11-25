@@ -1,5 +1,7 @@
 import type { ImportRecord, ImportState } from "../ports/state.js";
 
+export const STATE_SCHEMA = "kb_importer";
+
 interface PostgresClient {
   query(text: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
   end?(): Promise<void>;
@@ -27,7 +29,7 @@ function toRecord(row: Record<string, unknown>): ImportRecord {
 }
 
 const SCHEMA = `
-  CREATE SCHEMA IF NOT EXISTS kb_importer;
+  CREATE SCHEMA IF NOT EXISTS ${STATE_SCHEMA};
   CREATE TABLE IF NOT EXISTS imports (
     drive_file_id TEXT PRIMARY KEY,
     outline_id    TEXT,
