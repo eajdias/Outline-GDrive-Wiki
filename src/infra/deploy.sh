@@ -91,7 +91,7 @@ log "phase 4/6 images (pull: $PULL_MODE)"
 if [ "$PULL_MODE" != "never" ]; then
   compose pull --policy "$PULL_MODE" 2>/dev/null || compose pull
 fi
-compose build chat importer
+compose build llm-gateway chat importer
 
 log "phase 5/6 up + health-gate (timeout ${TIMEOUT}s)"
 compose up -d --wait --wait-timeout "$TIMEOUT" || {

@@ -84,7 +84,7 @@ if ($pullMode -ne "never") {
   try { Invoke-Compose @("pull", "--policy", $pullMode) | Out-Null }
   catch { Invoke-Compose @("pull") | Out-Null }
 }
-Invoke-Compose @("build", "chat", "importer") | Out-Null
+Invoke-Compose @("build", "llm-gateway", "chat", "importer") | Out-Null
 
 Write-Output "==> phase 5/6 up + health-gate (timeout ${Timeout}s)"
 try {
