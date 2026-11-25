@@ -25,17 +25,23 @@ done
 container="$(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps -q outline | tr -d '[:space:]')"
 [ -n "$container" ] || { echo "outline service is not running" >&2; exit 1; }
 
+# NOTE: never use /tmp inside the outline container: the compose mounts a
+# tmpfs over /tmp, and files copied there are invisible to `docker exec`.
+# Use the persistent data volume instead (cleaned up on exit).
+WORK_DIR="/var/lib/outline/data"
+
 tmp_dir="${TMPDIR:-/tmp}"
 stamp="kb-apikey-$$"
 tmp_js="$tmp_dir/$stamp.cjs"
+tmp_key="$tmp_dir/$stamp.key"
 
 cleanup() {
-  rm -f "$tmp_js"
-  docker exec -u 0 "$container" sh -c "rm -f /tmp/mint-apikey.cjs /tmp/outline-apikey.txt" 2>/dev/null || true
+  rm -f "$tmp_js" "$tmp_key"
+  docker exec -u 0 "$container" sh -c "rm -f $WORK_DIR/mint-apikey.cjs $WORK_DIR/outline-apikey.txt" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
-cat > "$tmp_js" <<'EOF'
+cat > "$tmp_js" <<EOF
 const fs = require("node:fs");
 require("/opt/outline/build/server/storage/database.js");
 const { User, ApiKey } = require("/opt/outline/build/server/models/index.js");
@@ -45,7 +51,7 @@ const { User, ApiKey } = require("/opt/outline/build/server/models/index.js");
   if (!user) throw new Error("admin user not found - sign up in the wiki first");
   const apiKey = await ApiKey.create({ name: "importer", userId: user.id, scope: ["*"] });
   if (!apiKey.value) throw new Error("key value not returned");
-  fs.writeFileSync("/tmp/outline-apikey.txt", apiKey.value, { mode: 0o600 });
+  fs.writeFileSync("$WORK_DIR/outline-apikey.txt", apiKey.value, { mode: 0o600 });
   console.log("minted");
 })().catch((error) => {
   console.error(error.message);
@@ -53,16 +59,16 @@ const { User, ApiKey } = require("/opt/outline/build/server/models/index.js");
 });
 EOF
 
-docker cp "$tmp_js" "$container:/tmp/mint-apikey.cjs" >/dev/null
-docker exec "$container" node --no-warnings /tmp/mint-apikey.cjs
-docker cp "$container:/tmp/outline-apikey.txt" "$tmp_dir/$stamp.key" >/dev/null
-chmod 600 "$tmp_dir/$stamp.key"
+docker cp "$tmp_js" "$container:$WORK_DIR/mint-apikey.cjs" >/dev/null
+docker exec "$container" node --no-warnings "$WORK_DIR/mint-apikey.cjs"
+docker cp "$container:$WORK_DIR/outline-apikey.txt" "$tmp_key" >/dev/null
+chmod 600 "$tmp_key"
 
 grep -v -E '^OUTLINE_API_KEY=' "$ENV_FILE" > "$ENV_FILE.tmp"
-key="$(cat "$tmp_dir/$stamp.key")"
+key="$(cat "$tmp_key")"
 printf '%s=%s\n' "OUTLINE_API_KEY" "$key" >> "$ENV_FILE.tmp"
 mv "$ENV_FILE.tmp" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
-rm -f "$tmp_dir/$stamp.key"
+rm -f "$tmp_key"
 
 echo "OUTLINE_API_KEY gravada no env (valor nunca exibido). Recrie o importer."

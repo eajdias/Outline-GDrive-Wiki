@@ -23,7 +23,12 @@ stamp="kb-outline-$$"
 tmp_js="$tmp_dir/$stamp.cjs"
 tmp_url="$tmp_dir/$stamp.url.txt"
 
-cat > "$tmp_js" <<'EOF'
+# NOTE: never use /tmp inside the outline container: the compose mounts a
+# tmpfs over /tmp, and files copied there are invisible to `docker exec`.
+# Use the persistent data volume instead (cleaned up on exit).
+WORK_DIR="/var/lib/outline/data"
+
+cat > "$tmp_js" <<EOF
 const fs = require("node:fs");
 const jwt = require("/opt/outline/node_modules/jsonwebtoken");
 require("/opt/outline/build/server/storage/database.js");
@@ -45,8 +50,8 @@ const { User } = require("/opt/outline/build/server/models/index.js");
 
   const base = (process.env.URL || "http://localhost:3000").replace(/\/+$/, "");
   fs.writeFileSync(
-    "/tmp/outline-login-url.txt",
-    `${base}/auth/redirect?token=${encodeURIComponent(token)}`,
+    "$WORK_DIR/outline-login-url.txt",
+    \`\${base}/auth/redirect?token=\${encodeURIComponent(token)}\`,
     { mode: 0o600 },
   );
   console.log(user.email);
@@ -59,19 +64,19 @@ EOF
 
 cleanup() {
   rm -f "$tmp_js" "$tmp_url"
-  docker exec -u 0 "$container" sh -c "rm -f /tmp/mint-outline.cjs /tmp/outline-login-url.txt" 2>/dev/null || true
+  docker exec -u 0 "$container" sh -c "rm -f $WORK_DIR/mint-outline.cjs $WORK_DIR/outline-login-url.txt" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
-docker cp "$tmp_js" "$container:/tmp/mint-outline.cjs" >/dev/null
+docker cp "$tmp_js" "$container:$WORK_DIR/mint-outline.cjs" >/dev/null
 
 if [ -n "$EMAIL" ]; then
-  user_email="$(docker exec -e "OUTLINE_LOGIN_EMAIL=$EMAIL" "$container" node --no-warnings /tmp/mint-outline.cjs)"
+  user_email="$(docker exec -e "OUTLINE_LOGIN_EMAIL=$EMAIL" "$container" node --no-warnings $WORK_DIR/mint-outline.cjs)"
 else
-  user_email="$(docker exec "$container" node --no-warnings /tmp/mint-outline.cjs)"
+  user_email="$(docker exec "$container" node --no-warnings $WORK_DIR/mint-outline.cjs)"
 fi
 
-docker cp "$container:/tmp/outline-login-url.txt" "$tmp_url" >/dev/null
+docker cp "$container:$WORK_DIR/outline-login-url.txt" "$tmp_url" >/dev/null
 url="$(tr -d '\r\n[:space:]' < "$tmp_url" | tr -d ' ')"
 origin="${url%%\?*}"
 
