@@ -111,6 +111,8 @@ sudo certbot --nginx -d <dominio-real>
 
 No `.env`: `URL`, `OUTLINE_PUBLIC_URL` e `CHAT_PUBLIC_URL` apontam para `https://<dominio-real>` (trocar `OUTLINE_PUBLIC_URL` reindexa as citações no próximo `seed`). Deploy: `DEPLOY_ENV=vps ./src/infra/deploy.sh`.
 
+Fase privada (antes do domínio): `EDGE_BIND_IP=<ip-do-tailscale>` (valor de `tailscale ip -4` na VPS) e as três URLs com `http://<ip-do-tailscale>:8091`; acesso só dentro do tailnet, sem tocar no security group. Jamais `0.0.0.0` — o host tem IP público e a porta ficaria aberta à internet.
+
 ## Backup e restore
 
 Timer do host (systemd, Linux), uma vez no servidor:

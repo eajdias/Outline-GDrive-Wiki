@@ -16,7 +16,7 @@ docker compose -f src/infra/docker-compose.yml logs -f outline
 | `anythingllm` | interna | RAG headless, só `/api/v1` (`kb-drive`) |
 | `chat` | interna | pergunta/resposta com citações |
 | `importer` | interna (8787) | `serve` + one-shot `seed`/`apply`/`verify` |
-| `edge` | 127.0.0.1:8091 | wiki + `/chat/` + `/hooks/drive` + `/drive-image/` |
+| `edge` | `$EDGE_BIND_IP`:8091 (default 127.0.0.1) | wiki + `/chat/` + `/hooks/drive` + `/drive-image/` |
 | `uploads` | 127.0.0.1:`UPLOADS_DIRECT_PORT` (8080) | nginx legado de anexos antigos |
 
 Modos: local (`up -d`, portas de acesso direto em loopback) · host dedicado (`-f docker-compose.prod.yml`: só o edge publica 80/443 com TLS) · host compartilhado (`-f docker-compose.vps.yml` ou `DEPLOY_ENV=vps`: sem portas diretas, edge segue em 127.0.0.1:8091 atrás do reverse proxy do host — ver `host-nginx/wiki.conf.example`). Os overlays removem as portas com `!override`; `ports: []` sozinho não remove.

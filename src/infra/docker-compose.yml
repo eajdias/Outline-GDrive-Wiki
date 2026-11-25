@@ -279,7 +279,7 @@ services:
     image: openresty/openresty:alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${EDGE_PORT:-8091}:80"
+      - "${EDGE_BIND_IP:-127.0.0.1}:${EDGE_PORT:-8091}:80"
     environment:
       CHAT_PUBLIC_URL: ${CHAT_PUBLIC_URL:-http://127.0.0.1:8091/chat}
     volumes:
