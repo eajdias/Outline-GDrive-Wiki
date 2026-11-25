@@ -7,6 +7,7 @@ set -eu
 INFRA_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 COMPOSE_BASE="$INFRA_DIR/docker-compose.yml"
 COMPOSE_PROD="$INFRA_DIR/docker-compose.prod.yml"
+COMPOSE_VPS="$INFRA_DIR/docker-compose.vps.yml"
 ENV_FILE="$INFRA_DIR/.env"
 DO_BACKUP=1
 ASSUME_YES=0
@@ -36,9 +37,12 @@ compose() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_BASE" ${COMPOSE_O
 
 FILES="docker-compose.yml"
 COMPOSE_OVERLAY=""
-if [ -f "$COMPOSE_PROD" ] && [ "${DEPLOY_ENV:-dev}" = "prod" ]; then
+if [ "${DEPLOY_ENV:-dev}" = "prod" ] && [ -f "$COMPOSE_PROD" ]; then
   COMPOSE_OVERLAY="$COMPOSE_PROD"
   FILES="docker-compose.yml + docker-compose.prod.yml"
+elif [ "${DEPLOY_ENV:-dev}" = "vps" ] && [ -f "$COMPOSE_VPS" ]; then
+  COMPOSE_OVERLAY="$COMPOSE_VPS"
+  FILES="docker-compose.yml + docker-compose.vps.yml"
 fi
 
 log "phase 1/6 preflight (files: $FILES, env: $ENV_FILE)"
@@ -63,7 +67,7 @@ gemini_key="$(grep -E '^GEMINI_API_KEY=' "$ENV_FILE" | cut -d= -f2- | tr -d '[:s
 [ -n "$gemini_keys$gemini_key" ] || die "defina GEMINI_API_KEYS (uma ou mais chaves) ou GEMINI_API_KEY"
 sa_path="$(grep -E '^DRIVE_SA_KEY_PATH=' "$ENV_FILE" | cut -d= -f2- | tr -d '[:space:]')"
 [ -f "$sa_path" ] || die "DRIVE_SA_KEY_PATH não existe: $sa_path"
-if [ -n "$COMPOSE_OVERLAY" ]; then
+if [ "$COMPOSE_OVERLAY" = "$COMPOSE_PROD" ]; then
   for cert in certs/fullchain.pem certs/privkey.pem; do
     [ -s "$INFRA_DIR/$cert" ] || die "TLS de produção exige $INFRA_DIR/$cert (a porta 443 falharia no boot do edge)"
   done
@@ -100,6 +104,11 @@ log "phase 6/6 summary"
 compose ps
 edge_port="$(grep -E '^EDGE_PORT=' "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]' || true)"
 edge_port="${edge_port:-8091}"
-printf 'Wiki: http://127.0.0.1:%s  Chat: http://127.0.0.1:%s/chat/\n' "$edge_port" "$edge_port"
+if [ "$COMPOSE_OVERLAY" = "$COMPOSE_VPS" ]; then
+  public_url="$(grep -E '^OUTLINE_PUBLIC_URL=' "$ENV_FILE" | cut -d= -f2- | tr -d '[:space:]' || true)"
+  printf 'Wiki: %s  Chat: %s/chat/  (edge local: http://127.0.0.1:%s)\n' "$public_url" "$public_url" "$edge_port"
+else
+  printf 'Wiki: http://127.0.0.1:%s  Chat: http://127.0.0.1:%s/chat/\n' "$edge_port" "$edge_port"
+fi
 printf 'Health: docker compose --env-file %s -f %s ps\n' "$ENV_FILE" "$COMPOSE_BASE"
 log "deploy OK"

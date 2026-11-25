@@ -61,7 +61,7 @@ Preencha nesta ordem (só o que tem `=` vazio precisa de você; o resto já vem 
 | `DRIVE_WEBHOOK_TOKEN` | obrigatório se usar webhook (sem ele o importador recusa toda notificação) | — |
 | `STATE_DATABASE_URL` | já vem montado com `POSTGRES_*`; só ajuste se mudar o banco | `postgres://outline:…@postgres:5432/outline` |
 
-Não mexa (a menos que saiba por quê): URLs internas (`OUTLINE_API_URL`, `OUTLINE_AUTH_URL`, `ANYTHINGLLM_API_URL`, `REDIS_URL`, `GENERIC_OPEN_AI_BASE_PATH`), portas, `*_MS`, `IMPORT_CONCURRENCY`, `CHAT_*` (limites), `LLM_GATEWAY_*` (política de cota), `EMBEDDING_OUTPUT_DIMENSIONS` (depois do seed), `OUTLINE_PUBLIC_URL` (só produção).
+Não mexa (a menos que saiba por quê): URLs internas (`OUTLINE_API_URL`, `OUTLINE_AUTH_URL`, `ANYTHINGLLM_API_URL`, `REDIS_URL`, `GENERIC_OPEN_AI_BASE_PATH`), portas, `*_MS`, `IMPORT_CONCURRENCY`, `CHAT_*` (limites), `LLM_GATEWAY_*` (política de cota), `EMBEDDING_OUTPUT_DIMENSIONS` (depois do seed). `URL`, `OUTLINE_PUBLIC_URL` e `CHAT_PUBLIC_URL` ficam no default local; em host dedicado ou compartilhado apontam para `https://<dominio>` (trocar `OUTLINE_PUBLIC_URL` reindexa as citações no próximo `seed`).
 
 ## 4. Primeiro boot + chaves geradas pelos serviços
 

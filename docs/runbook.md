@@ -21,7 +21,7 @@ chmod +x src/infra/deploy.sh
 ./src/infra/deploy.sh --yes --no-backup  # CI / sem backup
 ```
 
-Fases: preflight → env-validate (falha rápido sem expor valores) → backup → pull/build → `up -d --wait` (health-gate 300s) → resumo com URLs. Produção: `DEPLOY_ENV=prod ./src/infra/deploy.sh` (aplica o overlay sem portas diretas + TLS). Flags: `--env-file PATH`, `--timeout SECS`, `--pull`/`--no-pull`.
+Fases: preflight → env-validate (falha rápido sem expor valores) → backup → pull/build → `up -d --wait` (health-gate 300s) → resumo com URLs. Host dedicado: `DEPLOY_ENV=prod ./src/infra/deploy.sh` (overlay sem portas diretas + TLS no edge). Host compartilhado (80/443 já ocupados pelo nginx do host): `DEPLOY_ENV=vps ./src/infra/deploy.sh` (overlay sem portas diretas, edge segue em 127.0.0.1:8091) + vhost do host (ver abaixo). Flags: `--env-file PATH`, `--timeout SECS`, `--pull`/`--no-pull`.
 
 Em falha no health-gate, os containers ficam de pé para diagnóstico (`ps` + últimos 100 logs impressos) — nunca apague volumes (`down -v`) como "correção".
 
@@ -34,7 +34,8 @@ docker compose -f src/infra/docker-compose.yml logs -f outline
 
 - Wiki: http://127.0.0.1:8091 · chat: http://127.0.0.1:8091/chat/ · direto: http://127.0.0.1:3000
 - Wiki com conteúdo velho = cache de aba: abra `/reset` e recarregue.
-- Produção: adicione `-f src/infra/docker-compose.prod.yml` (sem portas diretas, TLS no edge; exige `src/infra/certs/` + `OUTLINE_PUBLIC_URL`).
+- Host dedicado: adicione `-f src/infra/docker-compose.prod.yml` (sem portas diretas, TLS no edge; exige `src/infra/certs/` + `OUTLINE_PUBLIC_URL`).
+- Host compartilhado: adicione `-f src/infra/docker-compose.vps.yml` (ou `DEPLOY_ENV=vps`) e exponha via reverse proxy do host com `src/infra/host-nginx/wiki.conf.example` (TLS no host; `URL`, `OUTLINE_PUBLIC_URL` e `CHAT_PUBLIC_URL` apontam para `https://<dominio>`).
 
 ## Sincronizar o Drive
 
@@ -81,7 +82,7 @@ docker compose -f src/infra/docker-compose.yml up -d llm-gateway
 
 Reiniciar o gateway zera os cooldowns (estado em memória).
 
-### 443 sem responder
+### 443 sem responder (host dedicado)
 
 O overlay de produção usa `edge/nginx.tls.conf`. Se o edge não sobe, faltam os certificados:
 
@@ -96,6 +97,19 @@ docker compose -f src/infra/docker-compose.yml logs --tail 100 chat
 ```
 
 Limites em `src/infra/.env.example`: corpo 8 KB, 10 perguntas/janela/IP, pergunta ≤1000 chars, corte `CHAT_MIN_SCORE` (0.65).
+
+## Reverse proxy do host (VPS compartilhada)
+
+Quando 80/443 já pertencem ao nginx do host, o edge nunca binda essas portas: o modo `vps` mantém o edge em 127.0.0.1:8091 e o host termina o TLS:
+
+```bash
+sudo cp src/infra/host-nginx/wiki.conf.example /etc/nginx/sites-enabled/wiki.conf
+sudo sed -i "s/wiki.exemplo.com/<dominio-real>/" /etc/nginx/sites-enabled/wiki.conf
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d <dominio-real>
+```
+
+No `.env`: `URL`, `OUTLINE_PUBLIC_URL` e `CHAT_PUBLIC_URL` apontam para `https://<dominio-real>` (trocar `OUTLINE_PUBLIC_URL` reindexa as citações no próximo `seed`). Deploy: `DEPLOY_ENV=vps ./src/infra/deploy.sh`.
 
 ## Backup e restore
 

@@ -1,0 +1,19 @@
+# Overlay VPS compartilhada (ex.: host com nginx próprio em 80/443).
+# Uso:
+#   DEPLOY_ENV=vps ./src/infra/deploy.sh
+#   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
+#
+# Diferença para o prod dedicado (docker-compose.prod.yml): aqui o edge
+# continua em 127.0.0.1:8091 sem TLS — o TLS termina no reverse proxy do
+# host (ver host-nginx/wiki.conf.example). Só remove as portas de acesso
+# direto, que colidiriam com outros serviços do host.
+
+services:
+  outline:
+    ports: !override [] # sem acesso direto; só via edge
+    environment:
+      URL: ${OUTLINE_PUBLIC_URL:?OUTLINE_PUBLIC_URL ausente}
+      FORCE_HTTPS: "true" # o host termina TLS e o edge recebe em HTTP puro
+
+  uploads:
+    ports: !override [] # anexos só via edge/wiki

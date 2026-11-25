@@ -120,6 +120,6 @@ O AnythingLLM não fala com o Gemini direto: aponta para o `llm-gateway`, que gu
 
 - Outline não tem busca vetorial: serve leitura, não pergunta.
 - Sem autenticação por documento — qualquer sessão válida do Outline alcança o acervo inteiro no chat (ver [`security.md`](security.md)).
-- Produção expõe 22/80/443; Postgres, Redis, AnythingLLM, llm-gateway, chat e importer nunca publicam porta.
+- Produção expõe 22/80/443; Postgres, Redis, AnythingLLM, llm-gateway, chat e importer nunca publicam porta. Em host compartilhado, 80/443 pertencem ao reverse proxy do host e o edge escuta só em `127.0.0.1:8091`.
 
 Decisões que explicam o "porquê": [`adr/`](adr/).

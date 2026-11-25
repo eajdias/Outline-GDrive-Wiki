@@ -10,7 +10,7 @@ As chaves do provedor LLM vivem **só** no `llm-gateway`; o AnythingLLM fala com
 
 ## Superfície de rede
 
-No local, o edge publica `127.0.0.1:8091` e o Outline publica `:3000` para acesso direto; em produção, o overlay remove a porta do Outline e só o edge publica 22/80/443 com TLS. Postgres, Redis, AnythingLLM, llm-gateway, chat e importer ficam na rede interna do compose. O AnythingLLM só fala `/v1` com API key — e a chave nunca vai ao navegador.
+No local, o edge publica `127.0.0.1:8091` e o Outline publica `127.0.0.1:3000` para acesso direto; em host dedicado, o overlay prod remove as portas diretas e só o edge publica 22/80/443 com TLS; em host compartilhado, o overlay vps remove as portas diretas e o edge segue em `127.0.0.1:8091` atrás do reverse proxy do host (TLS no host). Postgres, Redis, AnythingLLM, llm-gateway, chat e importer ficam na rede interna do compose. O AnythingLLM só fala `/v1` com API key — e a chave nunca vai ao navegador.
 
 O overlay de produção remove as portas de dev com `!override`; `ports: []` sozinho **não** remove (o Compose soma listas no merge). Fora do Compose, o edge só confia em `X-Real-IP`/`X-Forwarded-For` quando o peer direto é privado (o próprio edge), então o rate limit do chat não é forjável por header.
 

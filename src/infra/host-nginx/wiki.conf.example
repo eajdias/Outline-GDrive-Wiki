@@ -1,0 +1,41 @@
+# Exemplo de vhost no nginx do HOST (não do compose) para a VPS
+# compartilhada, onde 80/443 já pertencem ao host. O edge do compose segue
+# em 127.0.0.1:8091 sem TLS; este bloco termina o TLS e repassa tudo.
+#
+# Instalar (no host, uma vez):
+#   sudo cp wiki.conf.example /etc/nginx/sites-enabled/wiki.conf
+#   sudo sed -i "s/wiki.exemplo.com/<dominio-real>/" /etc/nginx/sites-enabled/wiki.conf
+#   sudo nginx -t && sudo systemctl reload nginx
+#   sudo certbot --nginx -d <dominio-real>   # emite o cert e ajusta o bloco 443
+#
+# Depois disso, no .env do compose: URL, OUTLINE_PUBLIC_URL e
+# CHAT_PUBLIC_URL apontam para https://<dominio-real> (ver .env.example),
+# e o deploy usa DEPLOY_ENV=vps.
+
+server {
+    listen 80;
+    server_name wiki.exemplo.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    # Gerenciado pelo certbot após a emissão (fullchain/privkey do domínio).
+    listen 443 ssl;
+    server_name wiki.exemplo.com;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:8091;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_connect_timeout 75s;
+        proxy_cache_bypass $http_upgrade;
+    }
+}

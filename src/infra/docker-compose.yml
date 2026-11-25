@@ -64,7 +64,7 @@ services:
     expose:
       - "3000"
     ports:
-      - "3000:3000" # acesso direto local; o overlay de produção sobrescreve com !override
+      - "127.0.0.1:${OUTLINE_DIRECT_PORT:-3000}:3000" # loopback: não rouba 0.0.0.0:3000 em host compartilhado
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-outline}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD ausente no src/infra/.env}@postgres:5432/${POSTGRES_DB:-outline}
     volumes:
@@ -96,7 +96,7 @@ services:
     expose:
       - "80"
     ports:
-      - "8080:80" # acesso direto local; o overlay de produção sobrescreve com !override
+      - "127.0.0.1:${UPLOADS_DIRECT_PORT:-8080}:80" # loopback: não rouba 0.0.0.0:8080 em host compartilhado
     volumes:
       - ../content/raw/uploads:/usr/share/nginx/html:ro
     networks:

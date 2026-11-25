@@ -21,8 +21,10 @@ $ErrorActionPreference = "Stop"
 $infraDir = $PSScriptRoot
 $composeBase = Join-Path $infraDir "docker-compose.yml"
 $composeProd = Join-Path $infraDir "docker-compose.prod.yml"
+$composeVps = Join-Path $infraDir "docker-compose.vps.yml"
 $overlay = @()
-if ((Test-Path $composeProd) -and $env:DEPLOY_ENV -eq "prod") { $overlay = @("-f", $composeProd) }
+if ($env:DEPLOY_ENV -eq "prod" -and (Test-Path $composeProd)) { $overlay = @("-f", $composeProd) }
+elseif ($env:DEPLOY_ENV -eq "vps" -and (Test-Path $composeVps)) { $overlay = @("-f", $composeVps) }
 
 function Invoke-Compose([string[]]$ComposeArgs) {
   $output = & docker compose --env-file $EnvFile -f $composeBase @overlay @ComposeArgs 2>&1
@@ -51,7 +53,7 @@ if ([string]::IsNullOrWhiteSpace((Get-EnvValue "GEMINI_API_KEYS")) -and [string]
   throw "defina GEMINI_API_KEYS (uma ou mais chaves) ou GEMINI_API_KEY"
 }
 if (-not (Test-Path (Get-EnvValue "DRIVE_SA_KEY_PATH"))) { throw "DRIVE_SA_KEY_PATH não existe" }
-if ($overlay.Count -gt 0) {
+if ($overlay.Count -gt 0 -and $overlay -contains $composeProd) {
   foreach ($cert in @("fullchain.pem","privkey.pem")) {
     $path = Join-Path $infraDir "certs/$cert"
     if (-not (Test-Path $path) -or (Get-Item $path).Length -eq 0) {
@@ -95,7 +97,14 @@ try {
 
 Write-Output "==> phase 6/6 summary"
 Invoke-Compose @("ps")
-$edgePort = Get-EnvValue "EDGE_PORT"
-if ([string]::IsNullOrWhiteSpace($edgePort)) { $edgePort = "8091" }
-Write-Output "Wiki: http://127.0.0.1:$edgePort  Chat: http://127.0.0.1:$edgePort/chat/"
+if ($overlay -contains $composeVps) {
+  $publicUrl = Get-EnvValue "OUTLINE_PUBLIC_URL"
+  $edgePort = Get-EnvValue "EDGE_PORT"
+  if ([string]::IsNullOrWhiteSpace($edgePort)) { $edgePort = "8091" }
+  Write-Output "Wiki: $publicUrl  Chat: $publicUrl/chat/  (edge local: http://127.0.0.1:$edgePort)"
+} else {
+  $edgePort = Get-EnvValue "EDGE_PORT"
+  if ([string]::IsNullOrWhiteSpace($edgePort)) { $edgePort = "8091" }
+  Write-Output "Wiki: http://127.0.0.1:$edgePort  Chat: http://127.0.0.1:$edgePort/chat/"
+}
 Write-Output "deploy OK"
