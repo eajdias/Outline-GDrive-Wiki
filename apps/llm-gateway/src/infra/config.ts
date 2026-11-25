@@ -70,7 +70,7 @@ function upstreamFor(env: NodeJS.ProcessEnv, name: string): UpstreamConfig {
     throw new Error(`Unknown LLM_GATEWAY_PROVIDERS entry: ${name} (known: ${Object.keys(PROVIDERS).join(", ")})`);
   }
 
-  const apiKeys = splitList(env[spec.keysEnv] ?? env.GEMINI_API_KEY);
+  const apiKeys = splitList(env[spec.keysEnv] || env.GEMINI_API_KEY);
   if (apiKeys.length === 0) {
     throw new Error(`Missing required environment variable: ${spec.keysEnv} (comma-separated fallback keys)`);
   }
