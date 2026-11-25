@@ -77,11 +77,10 @@ Agora gere as duas chaves que só existem depois do boot:
 **AnythingLLM API key:**
 
 ```bash
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps anythingllm curl -s -X POST http://anythingllm:3001/api/request-token
-# → {"token":"..."}  (use nas chamadas abaixo como $BOOT)
-
-docker compose -f src/infra/docker-compose.yml run --rm --no-deps anythingllm curl -s -X POST http://anythingllm:3001/api/admin/generate-api-key -H "Authorization: Bearer $BOOT"
-# → {"apiKey":"..."}  → cole em ANYTHINGLLM_API_KEY
+PW=$(grep -E '^ANYTHINGLLM_AUTH_TOKEN=' src/infra/.env | cut -d= -f2-)
+BOOT=$(docker compose -f src/infra/docker-compose.yml exec -T anythingllm curl -s -m 20 -X POST http://127.0.0.1:3001/api/request-token -H 'Content-Type: application/json' -d "{\"password\":\"$PW\"}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+KEY=$(docker compose -f src/infra/docker-compose.yml exec -T anythingllm curl -s -m 20 -X POST http://127.0.0.1:3001/api/system/generate-api-key -H "Authorization: Bearer $BOOT" | grep -o '"secret":"[^"]*"' | cut -d'"' -f4)
+# → cole em ANYTHINGLLM_API_KEY (nunca exiba a chave; confira só o tamanho)
 ```
 
 > Atalho local: o AnythingLLM também aceita criar a key pela UI se você publicar a porta temporariamente (`ports: ["3001:3001"]` + `up`, crie em Settings → API, depois remova a porta). Nunca deixe essa porta publicada em produção.
@@ -89,7 +88,11 @@ docker compose -f src/infra/docker-compose.yml run --rm --no-deps anythingllm cu
 **Outline API key + coleção default:**
 
 1. Crie seu usuário admin: abra http://127.0.0.1:8091, cadastre-se (primeiro usuário vira admin).
-2. Settings → API → **Create API key** (escopo leitura+escrita) → cole em `OUTLINE_API_KEY`.
+2. Sem navegador (ou sem SMTP configurado), gere a chave direto no banco — o valor nunca é exibido:
+   ```bash
+   ./src/infra/scripts/mint-outline-apikey.sh   # grava OUTLINE_API_KEY no .env
+   ```
+   Com a UI: Settings → API → **Create API key** (escopo leitura+escrita) → cole em `OUTLINE_API_KEY`.
 3. Crie as coleções espelhando as pastas do Drive (mesmo nome) **ou** preencha `OUTLINE_COLLECTION_MAP` (`{"<folderId>":"<collectionId>"}`) — IDs em Settings → API → Collections ou na URL da coleção.
 4. (Opcional) Coleção de fallback em `OUTLINE_DEFAULT_COLLECTION_ID` (ex. `Geral`).
 
